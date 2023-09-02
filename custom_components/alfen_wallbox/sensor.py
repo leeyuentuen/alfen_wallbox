@@ -906,6 +906,46 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         unit=UnitOfElectricCurrent.AMPERE,
         round_digits=2,
     ),
+    AlfenSensorDescription(
+        key="active_power_p1_l1",
+        name="Active Power P1 L1",
+        icon="mdi:transmission-tower",
+        api_param=None,
+        unit=UnitOfPower.WATT,
+        round_digits=2,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+    ),
+    AlfenSensorDescription(
+        key="active_power_p1_l2",
+        name="Active Power P1 L2",
+        icon="mdi:transmission-tower",
+        api_param=None,
+        unit=UnitOfPower.WATT,
+        round_digits=2,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+    ),
+    AlfenSensorDescription(
+        key="active_power_p1_l3",
+        name="Active Power P1 L3",
+        icon="mdi:transmission-tower",
+        api_param=None,
+        unit=UnitOfPower.WATT,
+        round_digits=2,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+    ),
+    AlfenSensorDescription(
+        key="active_power_p1_total",
+        name="Active Power P1 Total",
+        icon="mdi:transmission-tower",
+        api_param=None,
+        unit=UnitOfPower.WATT,
+        round_digits=2,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+    )
     # 2 Socket devices
     # AlfenSensorDescription(
     #     key="ps_connector_2_max_allowed_phase",
@@ -1060,6 +1100,42 @@ class AlfenSensor(AlfenEntity, SensorEntity):
     @property
     def state(self) -> StateType:
         """Return the state of the sensor."""
+        # state of none Api param
+        if self.entity_description.api_param is None:
+            voltage_l1 = None
+            voltage_l2 = None
+            voltage_l3 = None
+            current_l1 = None
+            current_l2 = None
+            current_l3 = None
+
+            for prop in self._device.properties:
+                if prop[ID] == "2221_3":
+                    voltage_l1 =  prop[VALUE]
+                if prop[ID] == "2221_4":
+                    voltage_l2 =  prop[VALUE]
+                if prop[ID] == "2221_5":
+                    voltage_l3 =  prop[VALUE]
+                if prop[ID] == "212F_1":
+                    current_l1 =  prop[VALUE]
+                if prop[ID] == "212F_2":
+                    current_l2 =  prop[VALUE]
+                if prop[ID] == "212F_3":
+                    current_l3 =  prop[VALUE]
+            
+            if self.entity_description.key == "active_power_p1_l1":
+                if voltage_l1 is not None and current_l1 is not None:
+                    return round( float(voltage_l1) * float(current_l1) , 2)
+            if self.entity_description.key == "active_power_p1_l2":
+                if voltage_l2 is not None and current_l2 is not None:
+                    return round( float(voltage_l2) * float(current_l2) , 2)
+            if self.entity_description.key == "active_power_p1_l3":
+                if voltage_l3 is not None and current_l3 is not None:
+                    return round( float(voltage_l3) * float(current_l3) , 2)
+            if self.entity_description.key == "active_power_p1_total":
+                if voltage_l1 is not None and current_l1 is not None and voltage_l2 is not None and current_l2 is not None and voltage_l3 is not None and current_l3 is not None:
+                    return round( (float(voltage_l1) * float(current_l1) + float(voltage_l2) * float(current_l2) + float(voltage_l3) * float(current_l3)) , 2)
+                
         for prop in self._device.properties:
             if prop[ID] == self.entity_description.api_param:
                 # some exception of return value
