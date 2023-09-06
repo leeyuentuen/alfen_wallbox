@@ -475,4 +475,4 @@ class AlfenNumber(AlfenEntity, NumberEntity):
 
     async def async_update(self):
         """Get the latest data and updates the states."""
-        self.async_set_native_value()
+        self._get_current_option()
