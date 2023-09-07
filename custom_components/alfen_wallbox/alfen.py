@@ -1,5 +1,7 @@
 import json
 import logging
+from anyio import sleep
+from async_timeout import timeout
 import requests
 
 from urllib3 import disable_warnings
@@ -37,6 +39,7 @@ from .const import (
     PARAM_USERNAME,
     PROP,
     PROPERTIES,
+    TIMEOUT,
     TOTAL,
     VALUE
 )
@@ -46,7 +49,6 @@ POST_HEADER_JSON = {"Content-Type": "application/json"}
 _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(seconds=5)
-TIMEOUT = 30
 
 
 class AlfenDevice:
@@ -71,6 +73,7 @@ class AlfenDevice:
         self._session.verify = False
         self.keepLogout = False
         self.updating = False
+        self.need_wait = False
         self.number_socket = 1
         self._hass = hass
         disable_warnings()
@@ -81,10 +84,7 @@ class AlfenDevice:
         if self.name is None:
             self.name = f"{self.info.identity} ({self.host})"
 
-        await self.async_update()
-        self._get_number_of_socket()
-
-    def _get_number_of_socket(self):
+    def get_number_of_socket(self):
         for prop in self.properties:
             if prop[ID] == '205E_0':
                 self.number_socket = int(prop[VALUE])
@@ -128,54 +128,85 @@ class AlfenDevice:
         }
 
     async def async_update(self):
-        if not self.updating:
+        if not self.updating and not self.need_wait:
             self.updating = True
             if not self.keepLogout:
                 await self._hass.async_add_executor_job(self._get_all_properties_value)
             self.updating = False
 
     def _post(self, cmd, payload=None, allowed_login=True):
-        response = self._session.post(
-            url=self.__get_url(cmd),
-            json=payload,
-            headers=POST_HEADER_JSON,
-            timeout=TIMEOUT)
-        if response.status_code == 401 and allowed_login:
-            _LOGGER.debug("POST with login")
-            self.login()
-            return self._post(cmd, payload, False)
-        response.raise_for_status()
-        if response:
-            return response
+        try:
+            self.need_wait = True
+            response = self._session.post(
+                url=self.__get_url(cmd),
+                json=payload,
+                headers=POST_HEADER_JSON,
+                timeout=TIMEOUT)
+            self.need_wait = False
+            if response.status_code == 401 and allowed_login:
+                _LOGGER.debug("POST with login")
+                self.login()
+                return self._post(cmd, payload, False)
+            response.raise_for_status()
+            if response:
+                return response
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.error("Unexpected error on POST %s", str(e))
+            self.need_wait = False
+            return None
 
     def _get(self, url, allowed_login=True):
-        response = self._session.get(url, timeout=TIMEOUT)
+        try:
+            self.need_wait = True
+            response = self._session.get(url, timeout=TIMEOUT)
+            self.need_wait = False
+            if response.status_code == 401 and allowed_login:
+                _LOGGER.debug("GET with login")
+                self.login()
+                return self._get(url, False)
+            response.raise_for_status()
 
-        if response.status_code == 401 and allowed_login:
-            _LOGGER.debug("GET with login")
-            self.login()
-            return self._get(url, False)
-        response.raise_for_status()
-
-        if response is not None and response != '':
-            return json.loads(response.text)
-        return None
+            if response is not None and response != '':
+                return json.loads(response.text)
+            return None
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.error("Unexpected error on GET %s", str(e))
+            self.need_wait = False
+            return None
 
     def login(self):
-        del self._session.cookies["session"]
-        response = self._post(cmd=LOGIN, payload={
-                              PARAM_USERNAME: self.username, PARAM_PASSWORD: self.password, PARAM_DISPLAY_NAME: DISPLAY_NAME_VALUE})
-        _LOGGER.debug(f"Login response {response}")
+        try:
+            self.need_wait = True
+            del self._session.cookies["session"]
+            response = self._post(cmd=LOGIN, payload={
+                PARAM_USERNAME: self.username, PARAM_PASSWORD: self.password, PARAM_DISPLAY_NAME: DISPLAY_NAME_VALUE})
+            _LOGGER.debug(f"Login response {response}")
+            self.need_wait = False
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.error("Unexpected error on LOGIN %s", str(e))
+            self.need_wait = False
+            return None
 
     def logout(self):
-        del self._session.cookies["session"]
-        response = self._post(cmd=LOGOUT)
-        _LOGGER.debug(f"Logout response {response}")
+        try:
+            self.need_wait = True
+            del self._session.cookies["session"]
+            response = self._post(cmd=LOGOUT)
+            _LOGGER.debug(f"Logout response {response}")
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.error("Unexpected error on LOGOUT %s", str(e))
+            self.need_wait = False
+            return None
 
     def _update_value(self, api_param, value):
-        response = self._post(cmd=PROP, payload={api_param: {
-                              ID: api_param, VALUE: str(value)}})
-        _LOGGER.debug(f"Set {api_param} value {value} response {response}")
+        try:
+            response = self._post(cmd=PROP, payload={api_param: {
+                ID: api_param, VALUE: str(value)}})
+            _LOGGER.debug(f"Set {api_param} value {value} response {response}")
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.error("Unexpected error on UPDATE VALUE %s", str(e))
+            self.need_wait = False
+            return None
 
     def _get_value(self, api_param):
         response = self._get(url=self.__get_url(
@@ -215,8 +246,12 @@ class AlfenDevice:
         _LOGGER.debug(f"Reboot response {response}")
 
     async def async_request(self, method: str, cmd: str, json_data=None):
-        response_json = await self._hass.async_add_executor_job(self.request, method, cmd, json_data)
-        return response_json
+        try:
+            response_json = await self._hass.async_add_executor_job(self.request, method, cmd, json_data)
+            return response_json
+        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.error("Unexpected error async request %s", str(e))
+            return None
 
     def request(self, method: str, cmd: str, json_data=None):
         if method == METHOD_POST:
@@ -228,6 +263,7 @@ class AlfenDevice:
         return response
 
     async def set_value(self, api_param, value):
+        self.need_wait = True
         await self._hass.async_add_executor_job(self._update_value, api_param, value)
 
         # we expect that the value is updated so we are just update the value in the properties
@@ -236,6 +272,7 @@ class AlfenDevice:
                 _LOGGER.debug(f"Set {api_param} value {value}")
                 prop[VALUE] = value
                 break
+        self.need_wait = False
 
     async def get_value(self, api_param):
         await self._hass.async_add_executor_job(self._get_value, api_param)

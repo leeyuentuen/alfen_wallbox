@@ -44,21 +44,21 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    conf = entry.data
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    conf = config_entry.data
     device = await alfen_setup(
         hass, conf[CONF_HOST], conf[CONF_NAME], conf[CONF_USERNAME], conf[CONF_PASSWORD]
     )
     if not device:
         return False
 
+    await device.async_update()
+    device.get_number_of_socket()
+
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = device
+    hass.data[DOMAIN][config_entry.entry_id] = device
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    if device is not None:
-        await hass.async_add_executor_job(device.logout)
+    await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
 
     return True
 
