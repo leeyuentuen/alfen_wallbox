@@ -108,7 +108,7 @@ class AlfenButton(AlfenEntity, ButtonEntity):
                            PARAM_PASSWORD: self._device.password,
                            PARAM_DISPLAY_NAME: DISPLAY_NAME_VALUE}
             )
-            if resp.status_code == 200:
+            if resp and resp.status_code == 200:
                 self._device.keepLogout = False
                 return
             resp.raise_for_status()
@@ -118,7 +118,7 @@ class AlfenButton(AlfenEntity, ButtonEntity):
                 cmd=self.entity_description.url_action,
                 json_data=self.entity_description.json_data
             )
-            if resp.status_code == 200:
+            if resp and resp.status_code == 200:
                 self._device.keepLogout = True
                 return
             resp.raise_for_status()

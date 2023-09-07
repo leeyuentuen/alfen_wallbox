@@ -135,12 +135,12 @@ class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
         # Do the turning on.
-        await self.update_state(self.entity_description.api_param, 1)
+        await self._device.set_value(self.entity_description.api_param, 1)
         await self._device.async_update()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
-        await self.update_state(self.entity_description.api_param, 0)
+        await self._device.set_value(self.entity_description.api_param, 0)
         await self._device.async_update()
 
     async def async_enable_phase_switching(self):

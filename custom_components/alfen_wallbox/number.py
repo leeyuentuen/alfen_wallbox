@@ -447,7 +447,7 @@ class AlfenNumber(AlfenEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
-        await self.update_state(self.entity_description.api_param, int(value))
+        await self._device.set_value(self.entity_description.api_param, int(value))
         self._attr_native_value = self._get_current_option()
         self.async_write_ha_state()
 
@@ -461,17 +461,17 @@ class AlfenNumber(AlfenEntity, NumberEntity):
     async def async_set_current_limit(self, limit):
         """Set the current limit."""
         await self._device.set_current_limit(limit)
-        await self.async_set_native_value(limit)
+        await self._get_current_option()
 
     async def async_set_green_share(self, value):
         """Set the green share."""
         await self._device.set_green_share(value)
-        await self.async_set_native_value(value)
+        await self._get_current_option()
 
     async def async_set_comfort_power(self, value):
         """Set the comfort power."""
         await self._device.set_comfort_power(value)
-        await self.async_set_native_value(value)
+        await self._get_current_option()
 
     async def async_update(self):
         """Get the latest data and updates the states."""

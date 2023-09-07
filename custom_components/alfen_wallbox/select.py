@@ -320,7 +320,7 @@ class AlfenSelect(AlfenEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
         value = {v: k for k, v in self.values_dict.items()}[option]
-        await self.update_state(self.entity_description.api_param, value)
+        await self._device.set_value(self.entity_description.api_param, value)
         self.async_write_ha_state()
 
     @property
@@ -353,11 +353,11 @@ class AlfenSelect(AlfenEntity, SelectEntity):
     async def async_enable_rfid_auth_mode(self):
         """Enable RFID authorization mode."""
         await self._device.set_rfid_auth_mode(True)
-        await self.update_state(self.entity_description.api_param, 2)
+        await self._device.set_value(self.entity_description.api_param, 2)
         self.async_write_ha_state()
 
     async def async_disable_rfid_auth_mode(self):
         """Disable RFID authorization mode."""
         await self._device.set_rfid_auth_mode(False)
-        await self.update_state(self.entity_description.api_param, 0)
+        await self._device.set_value(self.entity_description.api_param, 0)
         self.async_write_ha_state()

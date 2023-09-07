@@ -25,7 +25,3 @@ class AlfenEntity(Entity):
     async def async_added_to_hass(self) -> None:
         """Add listener for state changes."""
         await super().async_added_to_hass()
-
-    async def update_state(self, api_param, value):
-        """Get the state of the entity."""
-        await self._device.set_value(api_param, value)
