@@ -82,8 +82,8 @@ async def alfen_setup(hass: HomeAssistant, host: str, name: str, username: str, 
 
     try:
         with timeout(TIMEOUT):
-            device = AlfenDevice(host, name, username, password)
-            await device.init(hass)
+            device = AlfenDevice(hass, host, name, username, password)
+            await device.init()
     except asyncio.TimeoutError:
         _LOGGER.debug("Connection to %s timed out", host)
         raise ConfigEntryNotReady

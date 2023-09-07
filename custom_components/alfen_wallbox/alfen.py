@@ -51,6 +51,7 @@ TIMEOUT = 30
 
 class AlfenDevice:
     def __init__(self,
+                 hass: HomeAssistant,
                  host: str,
                  name: str,
                  username: str,
@@ -71,11 +72,10 @@ class AlfenDevice:
         self.keepLogout = False
         self.updating = False
         self.number_socket = 1
-        self._hass = None
+        self._hass = hass
         disable_warnings()
 
-    async def init(self, hass: HomeAssistant):
-        self._hass = hass
+    async def init(self):
         await self._hass.async_add_executor_job(self.get_info)
         self.id = "alfen_{}".format(self.name)
         if self.name is None:
