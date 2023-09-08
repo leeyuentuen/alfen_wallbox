@@ -1190,6 +1190,9 @@ async def async_setup_entry(
 
 
 class AlfenMainSensor(AlfenEntity):
+
+    entity_description: AlfenSensorDescription
+
     def __init__(self, device: AlfenDevice, description: AlfenSensorDescription) -> None:
         """Initialize the sensor."""
         super().__init__(device)

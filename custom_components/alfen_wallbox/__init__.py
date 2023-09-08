@@ -87,12 +87,11 @@ async def alfen_setup(hass: HomeAssistant, host: str, name: str, username: str, 
     except asyncio.TimeoutError:
         _LOGGER.debug("Connection to %s timed out", host)
         raise ConfigEntryNotReady
-    except ClientConnectionError:
-        _LOGGER.debug("ClientConnectionError to %s", host)
+    except ClientConnectionError as e:
+        _LOGGER.debug("ClientConnectionError to %s %s", host, str(e))
         raise ConfigEntryNotReady
     except Exception as e:  # pylint: disable=broad-except
-        _LOGGER.error("Unexpected error creating device %s", host)
-        _LOGGER.error(str(e))
+        _LOGGER.error("Unexpected error creating device %s %s", host, str(e))
         return None
 
     return device
