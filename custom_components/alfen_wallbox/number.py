@@ -33,6 +33,7 @@ class AlfenNumberDescriptionMixin:
     state: float
     api_param: str
     custom_mode: str
+    round_digits: int | None
 
 
 @dataclass
@@ -54,6 +55,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         api_param="2068_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="main_normal_max_current_socket_1",
@@ -68,6 +70,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         api_param="2129_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="max_station_current",
@@ -82,6 +85,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         api_param="2062_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="lb_max_smart_meter_current",
@@ -96,6 +100,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         api_param="2067_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="lb_solar_charging_green_share",
@@ -110,6 +115,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=PERCENTAGE,
         api_param="3280_2",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="lb_solar_charging_comfort_level",
@@ -124,6 +130,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfPower.WATT,
         api_param="3280_3",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="dp_light_intensity",
@@ -138,6 +145,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=PERCENTAGE,
         api_param="2061_2",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="ps_installation_max_imbalance_current",
@@ -152,6 +160,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         api_param="2174_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="lb_Charging_profiles_random_delay",
@@ -166,6 +175,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         api_param="21B9_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="auth_re_authorize_after_power_outage",
@@ -180,6 +190,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="2169_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="auth_connection_timeout",
@@ -194,6 +205,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="2169_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="ws_wired_socket_timeout",
@@ -208,6 +220,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="208B_1",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="ws_mobile_socket_timeout",
@@ -222,6 +235,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="208B_2",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="ocpp_wired_ocpp_send_timeout",
@@ -236,6 +250,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="208D_1",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="ocpp_mobile_ocpp_send_timeout",
@@ -250,6 +265,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="208D_2",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="ocpp_wired_ocpp_reply_timeout",
@@ -264,6 +280,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="208E_1",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="ocpp_mobile_ocpp_reply_timeout",
@@ -278,6 +295,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="208E_1",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="heartbeat_interval",
@@ -292,6 +310,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=NumberMode.BOX,
         unit_of_measurement=UnitOfTime.SECONDS,
         api_param="2086_0",
+        round_digits=None,
     ),
     AlfenNumberDescription(
         key="price_start_tariff",
@@ -306,6 +325,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=NumberMode.BOX,
         unit_of_measurement=CURRENCY_EURO,
         api_param="3262_2",
+        round_digits=2
     ),
     AlfenNumberDescription(
         key="price_price_per_kwh",
@@ -320,6 +340,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=NumberMode.BOX,
         unit_of_measurement=CURRENCY_EURO,
         api_param="3262_3",
+        round_digits=2
     ),
     AlfenNumberDescription(
         key="price_price_per_minute",
@@ -334,6 +355,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=NumberMode.BOX,
         unit_of_measurement=CURRENCY_EURO,
         api_param="3262_4",
+        round_digits=2
     ),
 
 )
@@ -352,6 +374,7 @@ ALFEN_NUMBER_DUAL_SOCKET_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         custom_mode=None,
         unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         api_param="3129_0",
+        round_digits=None,
     ),
 )
 
@@ -444,7 +467,10 @@ class AlfenNumber(AlfenEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
-        await self._device.set_value(self.entity_description.api_param, float(value))
+        if self.entity_description.round_digits is not None:
+            await self._device.set_value(self.entity_description.api_param, round(float(value), self.entity_description.round_digits))
+        else:
+            await self._device.set_value(self.entity_description.api_param, int(value))
         self._set_current_option()
 
     def _get_current_option(self) -> str | None:
@@ -453,6 +479,9 @@ class AlfenNumber(AlfenEntity, NumberEntity):
             if prop[ID] == self.entity_description.api_param:
                 _LOGGER.debug("%s Value: %s",
                               self.entity_description.name, prop[VALUE])
+
+                if self.entity_description.round_digits is not None:
+                    return round(prop[VALUE], self.entity_description.round_digits)
                 return prop[VALUE]
         return None
 
