@@ -23,7 +23,7 @@ class FlowHandler(config_entries.ConfigFlow):
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
 
-    async def _create_entry(self, host, name, username, password) -> None:
+    async def _create_entry(self, host: str, name: str, username: str, password: str) -> None:
         """Register new entry."""
         # Check if ip already is registered
         for entry in self._async_current_entries():
@@ -32,7 +32,7 @@ class FlowHandler(config_entries.ConfigFlow):
 
         return self.async_create_entry(title=host, data={CONF_HOST: host, CONF_NAME: name, CONF_USERNAME: username, CONF_PASSWORD: password})
 
-    async def _create_device(self, host, name, username, password):
+    async def _create_device(self, host: str, name: str, username: str, password: str):
         """Create device."""
 
         try:
@@ -58,8 +58,8 @@ class FlowHandler(config_entries.ConfigFlow):
             return self.async_show_form(
                 step_id="user", data_schema=vol.Schema({
                     vol.Required(CONF_HOST): str,
-                    vol.Required(CONF_USERNAME, default="admin"): str,
-                    vol.Required(CONF_PASSWORD): str,
+                    vol.Optional(CONF_USERNAME, default="admin"): str,
+                    vol.Optional(CONF_PASSWORD, default=""): str,
                     vol.Optional(CONF_NAME): str
                 })
             )

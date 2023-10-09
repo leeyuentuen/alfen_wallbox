@@ -2,13 +2,12 @@ import json
 import logging
 import ssl
 
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, ClientError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from urllib3 import disable_warnings
 
 from homeassistant.core import HomeAssistant
-from homeassistant.util import Throttle
 
 
 from .const import (
@@ -102,6 +101,11 @@ class AlfenDevice:
             url=self.__get_url(INFO), ssl=self.ssl
         )
         _LOGGER.debug(f"Response {response}")
+        if response.status == 404:
+            _LOGGER.error(response.reason +
+                          " : Could be invalid authentication or invalid IP address")
+            raise ClientError(response.reason)
+
         if response.status != 200:
             _LOGGER.debug("Info API not available, use generic info")
 
