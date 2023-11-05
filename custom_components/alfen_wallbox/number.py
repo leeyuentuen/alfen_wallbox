@@ -357,6 +357,53 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         api_param="3262_4",
         round_digits=2
     ),
+    AlfenNumberDescription(
+        key="ev_disconnection_timeout",
+        name="Car Disconnection Timeout (s)",
+        state=None,
+        icon="mdi:timer-sand",
+        assumed_state=False,
+        device_class=None,
+        native_min_value=0,
+        native_max_value=30,
+        native_step=1,
+        custom_mode=None,
+        unit_of_measurement=CURRENCY_EURO,
+        api_param="2136_0",
+        round_digits=None
+    ),
+
+    AlfenNumberDescription(
+        key="ev_non_charging_report_threshold",
+        name="Car Time to Report Not Charging (s)",
+        state=None,
+        icon="mdi:timer-sand",
+        assumed_state=False,
+        device_class=None,
+        native_min_value=0,
+        native_max_value=30,
+        native_step=1,
+        custom_mode=None,
+        unit_of_measurement=CURRENCY_EURO,
+        api_param="2184_0",
+        round_digits=None
+    ),
+
+    AlfenNumberDescription(
+        key="ev_auto_stop_transaction_time",
+        name="Car Time to Unlock Not Charging (s)",
+        state=None,
+        icon="mdi:timer-sand",
+        assumed_state=False,
+        device_class=None,
+        native_min_value=0,
+        native_max_value=30,
+        native_step=1,
+        custom_mode=None,
+        unit_of_measurement=CURRENCY_EURO,
+        api_param="2168_0",
+        round_digits=None
+    ),
 
 )
 

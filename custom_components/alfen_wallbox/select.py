@@ -146,6 +146,13 @@ SOCKET_TYPE_DICT: Final[dict[str, int]] = {
     "UNKNOWN": 99,
 }
 
+CAR_DISCONNECT_ACTION_DICT: Final[dict[str, int]] = {
+    "Continue": 0,
+    'Abort Lock': 1,
+    'Abort Unlock': 2,
+    'Abort Unlock When Offline': 3,
+}
+
 ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
     AlfenSelectDescription(
         key="lb_solar_charging_mode",
@@ -277,6 +284,24 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options_dict=SOCKET_TYPE_DICT,
         api_param="2125_0",
     ),
+    AlfenSelectDescription(
+        key="ps_socket_type_socket_1",
+        name="Socket Type Socket 1",
+        icon="mdi:cable-data",
+        options=list(SOCKET_TYPE_DICT),
+        options_dict=SOCKET_TYPE_DICT,
+        api_param="2125_0",
+    ),
+    AlfenSelectDescription(
+        key="ev_disconnect_action",
+        name="Car Disconnect Action",
+        icon="mdi:cable-data",
+        options=list(CAR_DISCONNECT_ACTION_DICT),
+        options_dict=CAR_DISCONNECT_ACTION_DICT,
+        api_param="2137_0",
+    ),
+
+
 )
 
 ALFEN_SELECT_DUAL_SOCKET_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
