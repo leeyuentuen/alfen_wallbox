@@ -243,10 +243,9 @@ class AlfenDevice:
 
     async def _get_value(self, api_param):
         """Get a value from the API."""
-        response = await self._get(url=self.__get_url(
-            f"{PROP}?{ID}={api_param}"))
-
-        _LOGGER.debug(f"Status Response {response}")
+        cmd = f"{PROP}?{ID}={api_param}"
+        response = await self._get(url=self.__get_url(cmd))
+        _LOGGER.debug(f"Status Response {cmd}: {response}")
 
         if response is not None:
             if self.properties is None:
@@ -265,9 +264,10 @@ class AlfenDevice:
             nextRequest = True
             offset = 0
             while (nextRequest):
-                response = await self._get(url=self.__get_url(
-                    f"{PROP}?{CAT}={cat}&{OFFSET}={offset}"))
-                _LOGGER.debug(f"Status Response {response}")
+                cmd = f"{PROP}?{CAT}={cat}&{OFFSET}={offset}"
+                response = await self._get(url=self.__get_url(cmd))
+                _LOGGER.debug(f"Status Response {cmd}: {response}")
+
                 if response is not None:
                     properties += response[PROPERTIES]
                     nextRequest = response[TOTAL] > (
