@@ -35,7 +35,7 @@ from .const import ID, SERVICE_REBOOT_WALLBOX, VALUE
 from .entity import AlfenEntity
 
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=5)
+SCAN_INTERVAL = timedelta(seconds=30)
 
 
 @dataclass
