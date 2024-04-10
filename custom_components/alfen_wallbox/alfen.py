@@ -243,10 +243,9 @@ class AlfenDevice:
 
     async def _get_value(self, api_param):
         """Get a value from the API."""
-        response = await self._get(url=self.__get_url(
-            f"{PROP}?{ID}={api_param}"))
-
-        _LOGGER.debug(f"Status Response {response}")
+        cmd = f"{PROP}?{ID}={api_param}"
+        response = await self._get(url=self.__get_url(cmd))
+        _LOGGER.debug(f"Status Response {cmd}: {response}")
 
         if response is not None:
             if self.properties is None:
@@ -264,15 +263,26 @@ class AlfenDevice:
         for cat in (CAT_GENERIC, CAT_GENERIC2, CAT_METER1, CAT_STATES, CAT_TEMP, CAT_OCPP, CAT_METER4, CAT_MBUS_TCP, CAT_COMM, CAT_DISPLAY, CAT_METER2):
             nextRequest = True
             offset = 0
+            attempt = 0
             while (nextRequest):
-                response = await self._get(url=self.__get_url(
-                    f"{PROP}?{CAT}={cat}&{OFFSET}={offset}"))
-                _LOGGER.debug(f"Status Response {response}")
+                attempt += 1
+                cmd = f"{PROP}?{CAT}={cat}&{OFFSET}={offset}"
+                response = await self._get(url=self.__get_url(cmd))
+                _LOGGER.debug(f"Status Response {cmd}: {response}")
+
                 if response is not None:
+                    attempt = 0
                     properties += response[PROPERTIES]
                     nextRequest = response[TOTAL] > (
                         offset + len(response[PROPERTIES]))
                     offset += len(response[PROPERTIES])
+                elif attempt >= 3:
+                    # This only possible in case of series of timeouts or unknown exceptions in self._get()
+                    # It's better to break completely, otherwise we can provide partial data in self.properties.
+                    _LOGGER.debug(f"Returning earlier after {attempt} attempts")
+                    self.properties = []
+                    return
+
         _LOGGER.debug(f"Properties {properties}")
         self.properties = properties
 
