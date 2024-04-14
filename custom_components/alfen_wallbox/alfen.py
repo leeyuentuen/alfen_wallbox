@@ -148,9 +148,11 @@ class AlfenDevice:
     async def async_update(self):
         """Update the device properties."""
         if not self.keepLogout and not self.wait and not self.updating:
-            self.updating = True
-            await self._get_all_properties_value()
-            self.updating = False
+            try:
+                self.updating = True
+                await self._get_all_properties_value()
+            finally:
+                self.updating = False
 
     async def _post(self, cmd, payload=None, allowed_login=True) -> ClientResponse | None:
         """Send a POST request to the API."""
