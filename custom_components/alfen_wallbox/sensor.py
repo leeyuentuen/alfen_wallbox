@@ -1140,6 +1140,40 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         unit=None,
         round_digits=None,
     ),
+    AlfenSensorDescription(
+        key="custom_tag_socket_1_charging",
+        name="Tag Socket 1 Charging",
+        icon="mdi:battery-charging",
+        api_param=None,
+        unit=UnitOfEnergy.KILO_WATT_HOUR,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="custom_tag_socket_1_charging_time",
+        name="Tag Socket 1 Charging Time",
+        icon="mdi:clock",
+        api_param=None,
+        unit=UnitOfTime.MINUTES,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="custom_tag_socket_1_charged",
+        name="Tag Socket 1 Last Charge",
+        icon="mdi:battery-charging",
+        api_param=None,
+        unit=UnitOfEnergy.KILO_WATT_HOUR,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="custom_tag_socket_1_charged_time",
+        name="Tag Socket 1 Last Charge Time",
+        icon="mdi:clock",
+        api_param=None,
+        unit=UnitOfTime.MINUTES,
+        round_digits=None,
+    ),
+
+
 )
 
 ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
@@ -1442,6 +1476,38 @@ ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         unit=None,
         round_digits=None,
     ),
+    AlfenSensorDescription(
+        key="custom_tag_socket_2_charging",
+        name="Tag Socket 2 Charging",
+        icon="mdi:battery-charging",
+        api_param=None,
+        unit=UnitOfEnergy.KILO_WATT_HOUR,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="custom_tag_socket_2_charging_time",
+        name="Tag Socket 2 Charging Time",
+        icon="mdi:clock",
+        api_param=None,
+        unit=UnitOfTime.MINUTES,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="custom_tag_socket_2_charged",
+        name="Tag Socket 2 Last Charge",
+        icon="mdi:battery-charging",
+        api_param=None,
+        unit=UnitOfEnergy.KILO_WATT_HOUR,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="custom_tag_socket_2_charged_time",
+        name="Tag Socket 2 Last Charge Time",
+        icon="mdi:clock",
+        api_param=None,
+        unit=UnitOfTime.MINUTES,
+        round_digits=None,
+    ),
 )
 
 
@@ -1641,15 +1707,82 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 if self._device.latest_tag is None:
                     return "No Tag"
                 for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 1" and key[1] ==  "start":
+                    if key[0] == "socket 1" and key[1] ==  "start" and key[2] == "tag":
                         return value
                 return "No Tag"
+
+            if self.entity_description.key in ("custom_tag_socket_1_charging", "custom_tag_socket_1_charged"):
+                if self._device.latest_tag is None:
+                    return "Unknown"
+                ## calculate the usage
+                startkWh = None
+                mvkWh = None
+                stopkWh = None
+
+                for (key,value) in self._device.latest_tag.items():
+                    if key[0] == "socket 1" and key[1] ==  "start" and key[2] == "kWh":
+                        startkWh = value
+                        continue
+                    if key[0] == "socket 1" and key[1] ==  "mv" and key[2] == "kWh":
+                        mvkWh = value
+                        continue
+                    if key[0] == "socket 1" and key[1] ==  "stop" and key[2] == "kWh":
+                        stopkWh = value
+                        continue
+
+                if startkWh is not None and mvkWh is not None and self.entity_description.key == 'custom_tag_socket_1_charging':
+                    # if we have stopkWh and it is higher then mvkWh, then we are not charging anymore and we should return 0
+                    if stopkWh is not None and float(stopkWh) >= float(mvkWh):
+                        return 0
+                    return round(float(mvkWh) - float(startkWh), 2)
+
+                if startkWh is not None and stopkWh is not None and self.entity_description.key == 'custom_tag_socket_1_charged':
+                    return round(float(stopkWh) - float(startkWh), 2)
+
+            if self.entity_description.key in ["custom_tag_socket_1_charging_time", "custom_tag_socket_1_charged_time"]:
+                if self._device.latest_tag is None:
+                    return "Unknown"
+
+                startDate = None
+                mvDate = None
+                stopDate = None
+
+
+                for (key,value) in self._device.latest_tag.items():
+                    if key[0] == "socket 1" and key[1] ==  "start" and key[2] == "date":
+                        startDate = value
+                        continue
+                    if key[0] == "socket 1" and key[1] ==  "mv" and key[2] == "date":
+                        mvDate = value
+                        continue
+                    if key[0] == "socket 1" and key[1] ==  "stop" and key[2] == "date":
+                        stopDate = value
+                        continue
+
+                if startDate is not None and stopDate is not None and self.entity_description.key == 'custom_tag_socket_1_charged_time':
+                    startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+                    stopDate = datetime.datetime.strptime(stopDate, '%Y-%m-%d %H:%M:%S')
+
+                    if stopDate < startDate:
+                        return 0
+                    # return the value in minutes
+                    return round((stopDate - startDate).total_seconds() / 60, 2)
+
+                if startDate is not None and mvDate is not None and self.entity_description.key == 'custom_tag_socket_1_charging_time':
+                    startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+                    mvDate = datetime.datetime.strptime(mvDate, '%Y-%m-%d %H:%M:%S')
+
+                    if mvDate < startDate:
+                        return 0
+                    # return the value in minutes
+                    return round((mvDate - startDate).total_seconds() / 60, 2)
+
 
             if self.entity_description.key == "custom_tag_socket_1_stop":
                 if self._device.latest_tag is None:
                     return "No Tag"
                 for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 1" and key[1] ==  "stop":
+                    if key[0] == "socket 1" and key[1] ==  "stop" and key[2] == "tag":
                         return value
                 return "No Tag"
 
@@ -1657,15 +1790,82 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 if self._device.latest_tag is None:
                     return "No Tag"
                 for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 2" and key[1] ==  "start":
+                    if key[0] == "socket 2" and key[1] ==  "start" and key[2] == "tag":
                         return value
                 return "No Tag"
+
+            if self.entity_description.key in ("custom_tag_socket_2_charging", "custom_tag_socket_2_charged"):
+                if self._device.latest_tag is None:
+                    return "Unknown"
+                ## calculate the usage
+                startkWh = None
+                mvkWh = None
+                stopkWh = None
+
+                for (key,value) in self._device.latest_tag.items():
+                    if key[0] == "socket 2" and key[1] ==  "start" and key[2] == "kWh":
+                        startkWh = value
+                        continue
+                    if key[0] == "socket 2" and key[1] ==  "mv" and key[2] == "kWh":
+                        mvkWh = value
+                        continue
+                    if key[0] == "socket 2" and key[1] ==  "stop" and key[2] == "kWh":
+                        stopkWh = value
+                        continue
+
+                if startkWh is not None and mvkWh is not None and self.entity_description.key == 'custom_tag_socket_2_charging':
+                    # if we have stopkWh and it is higher then mvkWh, then we are not charging anymore and we should return 0
+                    if stopkWh is not None and float(stopkWh) >= float(mvkWh):
+                        return 0
+                    return round(float(mvkWh) - float(startkWh), 2)
+
+                if startkWh is not None and stopkWh is not None and self.entity_description.key == 'custom_tag_socket_2_charged':
+                    return round(float(stopkWh) - float(startkWh), 2)
+
+            if self.entity_description.key in ["custom_tag_socket_2_charging_time", "custom_tag_socket_2_charged_time"]:
+                if self._device.latest_tag is None:
+                    return "Unknown"
+
+                startDate = None
+                mvDate = None
+                stopDate = None
+
+
+                for (key,value) in self._device.latest_tag.items():
+                    if key[0] == "socket 2" and key[1] ==  "start" and key[2] == "date":
+                        startDate = value
+                        continue
+                    if key[0] == "socket 2" and key[1] ==  "mv" and key[2] == "date":
+                        mvDate = value
+                        continue
+                    if key[0] == "socket 2" and key[1] ==  "stop" and key[2] == "date":
+                        stopDate = value
+                        continue
+
+                if startDate is not None and stopDate is not None and self.entity_description.key == 'custom_tag_socket_2_charged_time':
+                    startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+                    stopDate = datetime.datetime.strptime(stopDate, '%Y-%m-%d %H:%M:%S')
+
+                    if stopDate < startDate:
+                        return 0
+                    # return the value in minutes
+                    return round((stopDate - startDate).total_seconds() / 60, 2)
+
+                if startDate is not None and mvDate is not None and self.entity_description.key == 'custom_tag_socket_2_charging_time':
+                    startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+                    mvDate = datetime.datetime.strptime(mvDate, '%Y-%m-%d %H:%M:%S')
+
+                    if mvDate < startDate:
+                        return 0
+                    # return the value in minutes
+                    return round((mvDate - startDate).total_seconds() / 60, 2)
+
 
             if self.entity_description.key == "custom_tag_socket_2_stop":
                 if self._device.latest_tag is None:
                     return "No Tag"
                 for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 2" and key[1] ==  "stop":
+                    if key[0] == "socket 2" and key[1] ==  "stop" and key[2] == "tag":
                         return value
                 return "No Tag"
 

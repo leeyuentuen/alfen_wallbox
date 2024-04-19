@@ -329,28 +329,66 @@ class AlfenDevice:
 
                 try:
                     if "version" in line:
+                        #_LOGGER.debug("Version line" + line)
                         line = line.split(":2,", 2)[1]
 
+                    splitline = line.split(" ")
+
                     if "txstart" in line:
+                        #_LOGGER.debug("start line: " + line)
                         tid = line.split(":", 2)[0].split("_", 2)[0]
-                        socket = line.split(", ", 2)[1]
-                        tag = line.split("kWh ", 2)[1].split(" ", 2)[0]
+
+                        tid = splitline[0].split("_", 2)[0]
+                        socket = splitline[3] + " " + splitline[4].split(",", 2)[0]
+
+                        date = splitline[5] + " " + splitline[6]
+                        kWh = splitline[7].split('kWh', 2)[0]
+                        tag= splitline[8]
+
+                        # 3: transaction id
+                        # 9: 1
+                        # 10: y
 
 
                         if self.latest_tag is None:
                             self.latest_tag = {}
-                        self.latest_tag[socket,"start"] = tag
+                        self.latest_tag[socket,"start", "tag"] = tag
+                        self.latest_tag[socket,"start","date"] = date
+                        self.latest_tag[socket,"start","kWh"] = kWh
 
                     elif "txstop" in line:
-                        tid = line.split(":", 2)[0].split("_", 2)[0]
-                        socket = line.split(", ", 2)[1]
-                        tag = line.split("kWh ", 2)[1].split(" ", 2)[0]
+                        #_LOGGER.debug("stop line: " + line)
+
+                        tid = splitline[0].split("_", 2)[0]
+                        socket = splitline[3] + " " + splitline[4].split(",", 2)[0]
+
+                        date = splitline[5] + " " + splitline[6]
+                        kWh = splitline[7].split('kWh', 2)[0]
+                        tag= splitline[8]
+
+                        # 2: transaction id
+                        # 9: y
 
                         if self.latest_tag is None:
                             self.latest_tag = {}
-                        self.latest_tag[socket,"stop"] = tag
+                        self.latest_tag[socket,"stop","tag"] = tag
+                        self.latest_tag[socket,"stop","date"] = date
+                        self.latest_tag[socket,"stop","kWh"] = kWh
+
                     elif "mv" in line:
-                        tid = line.split("_", 2)[0]
+                        #_LOGGER.debug("mv line: " + line)
+                        tid = splitline[0].split("_", 2)[0]
+                        socket = splitline[1] + " " + splitline[2].split(",", 2)[0]
+                        date = splitline[3] + " " + splitline[4]
+                        kWh = splitline[5]
+
+                        if self.latest_tag is None:
+                            self.latest_tag = {}
+                        self.latest_tag[socket,"mv","date"] = date
+                        self.latest_tag[socket,"mv","kWh"] = kWh
+
+                        #_LOGGER.debug(self.latest_tag)
+
                     elif 'dto' in line:
                         continue
                     else:
