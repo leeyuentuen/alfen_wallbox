@@ -1154,7 +1154,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         icon="mdi:clock",
         api_param=None,
         unit=UnitOfTime.MINUTES,
-        round_digits=None,
+        round_digits=0,
     ),
     AlfenSensorDescription(
         key="custom_tag_socket_1_charged",
@@ -1170,7 +1170,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         icon="mdi:clock",
         api_param=None,
         unit=UnitOfTime.MINUTES,
-        round_digits=None,
+        round_digits=0,
     ),
 
 
@@ -1490,7 +1490,7 @@ ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         icon="mdi:clock",
         api_param=None,
         unit=UnitOfTime.MINUTES,
-        round_digits=None,
+        round_digits=0,
     ),
     AlfenSensorDescription(
         key="custom_tag_socket_2_charged",
@@ -1506,7 +1506,7 @@ ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         icon="mdi:clock",
         api_param=None,
         unit=UnitOfTime.MINUTES,
-        round_digits=None,
+        round_digits=0,
     ),
 )
 
