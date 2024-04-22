@@ -306,7 +306,7 @@ class AlfenDevice:
                 attempt += 1
                 cmd = f"{PROP}?{CAT}={cat}&{OFFSET}={offset}"
                 response = await self._get(url=self.__get_url(cmd))
-                #_LOGGER.debug(f"Status Response {cmd}: {response}")
+                _LOGGER.debug(f"Status Response {cmd}: {response}")
 
                 if response is not None:
                     attempt = 0
@@ -321,7 +321,7 @@ class AlfenDevice:
                     self.properties = []
                     return
 
-        #_LOGGER.debug(f"Properties {properties}")
+        _LOGGER.debug(f"Properties {properties}")
         self.properties = properties
 
     async def reboot_wallbox(self):

@@ -1656,6 +1656,109 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         """Return the unit the value is expressed in."""
         return self.entity_description.unit
 
+    def _processTransactionKWh(self, socket:str, entity_description:AlfenSensorDescription):
+        if self._device.latest_tag is None:
+            return "Unknown"
+        ## calculate the usage
+        startkWh = None
+        mvkWh = None
+        stopkWh = None
+
+        for (key,value) in self._device.latest_tag.items():
+            if key[0] == socket and key[1] ==  "start" and key[2] == "kWh":
+                startkWh = value
+                continue
+            if key[0] == socket and key[1] ==  "mv" and key[2] == "kWh":
+                mvkWh = value
+                continue
+            if key[0] == socket and key[1] ==  "stop" and key[2] == "kWh":
+                stopkWh = value
+                continue
+
+        # if the entity_key end with _charging, then we are calculating the charging
+        if startkWh is not None and mvkWh is not None and entity_description.key.endswith('_charging'):
+            # if we have stopkWh and it is higher then mvkWh, then we are not charging anymore and we should return 0
+            if stopkWh is not None and float(stopkWh) >= float(mvkWh):
+                return 0
+            value = round(float(mvkWh) - float(startkWh), 2)
+            if entity_description.round_digits is not None:
+                return round(value, entity_description.round_digits if entity_description.round_digits > 0 else None)
+            return value
+
+        # if the entity_key end with _charged, then we are calculating the charged
+        if startkWh is not None and stopkWh is not None and entity_description.key.endswith('_charged'):
+            if float(stopkWh) > float(startkWh):
+                value =  round(float(stopkWh) - float(startkWh), 2)
+                if entity_description.round_digits is not None:
+                    return round(value, entity_description.round_digits if entity_description.round_digits > 0 else None)
+                return value
+
+    def _processTransactionTime(self, socket:str, entity_description:AlfenSensorDescription):
+        if self._device.latest_tag is None:
+            return "Unknown"
+
+        startDate = None
+        mvDate = None
+        stopDate = None
+
+        for (key,value) in self._device.latest_tag.items():
+            if key[0] == "socket 1" and key[1] ==  "start" and key[2] == "date":
+                startDate = value
+                continue
+            if key[0] == "socket 1" and key[1] ==  "mv" and key[2] == "date":
+                mvDate = value
+                continue
+            if key[0] == "socket 1" and key[1] ==  "stop" and key[2] == "date":
+                stopDate = value
+                continue
+
+        if startDate is not None and stopDate is not None and entity_description.key.endswith('_charged_time'):
+            startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+            stopDate = datetime.datetime.strptime(stopDate, '%Y-%m-%d %H:%M:%S')
+
+            if stopDate < startDate:
+                return
+            # return the value in minutes
+            value = round((stopDate - startDate).total_seconds() / 60, 2)
+            if entity_description.round_digits is not None:
+                return round(value, entity_description.round_digits if entity_description.round_digits > 0 else None)
+            return value
+
+        if startDate is not None and mvDate is not None and entity_description.key.endswith('_charging_time'):
+            startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+            mvDate = datetime.datetime.strptime(mvDate, '%Y-%m-%d %H:%M:%S')
+            stopDate = datetime.datetime.strptime(stopDate, '%Y-%m-%d %H:%M:%S')
+
+            # if there is a stopdate greater then startDate, then we are not charging anymore
+            if stopDate is not None and stopDate > startDate:
+                return 0
+
+            # return the value in minutes
+            value = round((mvDate - startDate).total_seconds() / 60, 2)
+            if entity_description.round_digits is not None:
+                return round(value, entity_description.round_digits if entity_description.round_digits > 0 else None)
+            return value
+
+    def _customTransactionCode(self, socker_number:int):
+        if self.entity_description.key == f"custom_tag_socket_{socker_number}":
+            if self._device.latest_tag is None:
+                return "No Tag"
+            for (key,value) in self._device.latest_tag.items():
+                if key[0] == f"socket {socker_number}" and key[1] ==  "start" and key[2] == "tag":
+                    return value
+            return "No Tag"
+
+        if self.entity_description.key in (f"custom_transaction_socket_{socker_number}_charging", f"custom_transaction_socket_{socker_number}_charged"):
+            value = self._processTransactionKWh(f"socket {socker_number}", self.entity_description)
+            if value is not None:
+                return value
+
+
+        if self.entity_description.key in [f"custom_transaction_socket_{socker_number}_charging_time", f"custom_transaction_socket_{socker_number}_charged_time"]:
+            value = self._processTransactionTime("socket " + str(socker_number), self.entity_description)
+            if value is not None:
+                return value
+
     @property
     def state(self) -> StateType:
         """Return the state of the sensor."""
@@ -1695,175 +1798,13 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 if voltage_l1 is not None and current_l1 is not None and voltage_l2 is not None and current_l2 is not None and voltage_l3 is not None and current_l3 is not None:
                     return round((float(voltage_l1) * float(current_l1) + float(voltage_l2) * float(current_l2) + float(voltage_l3) * float(current_l3)), 2)
 
-            if self.entity_description.key == "custom_tag_socket_1":
-                if self._device.latest_tag is None:
-                    return "No Tag"
-                for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 1" and key[1] ==  "start" and key[2] == "tag":
-                        return value
-                return "No Tag"
-
-            if self.entity_description.key in ("custom_transaction_socket_1_charging", "custom_transaction_socket_1_charged"):
-                if self._device.latest_tag is None:
-                    return "Unknown"
-                ## calculate the usage
-                startkWh = None
-                mvkWh = None
-                stopkWh = None
-
-                for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 1" and key[1] ==  "start" and key[2] == "kWh":
-                        startkWh = value
-                        continue
-                    if key[0] == "socket 1" and key[1] ==  "mv" and key[2] == "kWh":
-                        mvkWh = value
-                        continue
-                    if key[0] == "socket 1" and key[1] ==  "stop" and key[2] == "kWh":
-                        stopkWh = value
-                        continue
-
-                if startkWh is not None and mvkWh is not None and self.entity_description.key == 'custom_transaction_socket_1_charging':
-                    # if we have stopkWh and it is higher then mvkWh, then we are not charging anymore and we should return 0
-                    if stopkWh is not None and float(stopkWh) >= float(mvkWh):
-                        return 0
-                    return round(float(mvkWh) - float(startkWh), 2)
-
-                if startkWh is not None and stopkWh is not None and self.entity_description.key == 'custom_transaction_socket_1_charged':
-                    value = round(float(stopkWh) - float(startkWh), 2)
-                    if value > 0:
-                        if self.entity_description.round_digits is not None:
-                            return round(value, self.entity_description.round_digits)
-
-            if self.entity_description.key in ["custom_transaction_socket_1_charging_time", "custom_transaction_socket_1_charged_time"]:
-                if self._device.latest_tag is None:
-                    return "Unknown"
-
-                startDate = None
-                mvDate = None
-                stopDate = None
 
 
-                for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 1" and key[1] ==  "start" and key[2] == "date":
-                        startDate = value
-                        continue
-                    if key[0] == "socket 1" and key[1] ==  "mv" and key[2] == "date":
-                        mvDate = value
-                        continue
-                    if key[0] == "socket 1" and key[1] ==  "stop" and key[2] == "date":
-                        stopDate = value
-                        continue
-
-                if startDate is not None and stopDate is not None and self.entity_description.key == 'custom_transaction_socket_1_charged_time':
-                    startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
-                    stopDate = datetime.datetime.strptime(stopDate, '%Y-%m-%d %H:%M:%S')
-
-                    if stopDate < startDate:
-                        return
-                    # return the value in minutes
-                    value = round((stopDate - startDate).total_seconds() / 60, 2)
-                    if self.entity_description.round_digits is not None:
-                        return round(value, self.entity_description.round_digits)
-
-
-                if startDate is not None and mvDate is not None and self.entity_description.key == 'custom_transaction_socket_1_charging_time':
-                    startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
-                    mvDate = datetime.datetime.strptime(mvDate, '%Y-%m-%d %H:%M:%S')
-                    stopDate = datetime.datetime.strptime(stopDate, '%Y-%m-%d %H:%M:%S')
-
-                    # if there is a stopdate greater then startDate, then we are not charging anymore
-                    if stopDate is not None and stopDate > startDate:
-                        return 0
-                    # return the value in minutes
-
-                    value = round((mvDate - startDate).total_seconds() / 60, 2)
-                    if self.entity_description.round_digits is not None:
-                        return round(value, self.entity_description.round_digits)
-
-
-            if self.entity_description.key == "custom_tag_socket_2":
-                if self._device.latest_tag is None:
-                    return "No Tag"
-                for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 2" and key[1] ==  "start" and key[2] == "tag":
-                        return value
-                return "No Tag"
-
-            if self.entity_description.key in ("custom_transaction_socket_2_charging", "custom_transaction_socket_2_charged"):
-                if self._device.latest_tag is None:
-                    return "Unknown"
-                ## calculate the usage
-                startkWh = None
-                mvkWh = None
-                stopkWh = None
-
-                for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 2" and key[1] ==  "start" and key[2] == "kWh":
-                        startkWh = value
-                        continue
-                    if key[0] == "socket 2" and key[1] ==  "mv" and key[2] == "kWh":
-                        mvkWh = value
-                        continue
-                    if key[0] == "socket 2" and key[1] ==  "stop" and key[2] == "kWh":
-                        stopkWh = value
-                        continue
-
-                if startkWh is not None and mvkWh is not None and self.entity_description.key == 'custom_transaction_socket_2_charging':
-                    # if we have stopkWh and it is higher then mvkWh, then we are not charging anymore and we should return 0
-                    if stopkWh is not None and float(stopkWh) >= float(mvkWh):
-                        return 0
-                    value = round(float(mvkWh) - float(startkWh), 2)
-                    if self.entity_description.round_digits is not None:
-                        return round(value, self.entity_description.round_digits)
-
-                if startkWh is not None and stopkWh is not None and self.entity_description.key == 'custom_transaction_socket_2_charged':
-                    value = round(float(stopkWh) - float(startkWh), 2)
-                    if value > 0:
-                        if self.entity_description.round_digits is not None:
-                            return round(value, self.entity_description.round_digits)
-
-            if self.entity_description.key in ["custom_transaction_socket_2_charging_time", "custom_transaction_socket_2_charged_time"]:
-                if self._device.latest_tag is None:
-                    return "Unknown"
-
-                startDate = None
-                mvDate = None
-                stopDate = None
-
-
-                for (key,value) in self._device.latest_tag.items():
-                    if key[0] == "socket 2" and key[1] ==  "start" and key[2] == "date":
-                        startDate = value
-                        continue
-                    if key[0] == "socket 2" and key[1] ==  "mv" and key[2] == "date":
-                        mvDate = value
-                        continue
-                    if key[0] == "socket 2" and key[1] ==  "stop" and key[2] == "date":
-                        stopDate = value
-                        continue
-
-                if startDate is not None and stopDate is not None and self.entity_description.key == 'custom_transaction_socket_2_charged_time':
-                    startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
-                    stopDate = datetime.datetime.strptime(stopDate, '%Y-%m-%d %H:%M:%S')
-
-                    if stopDate < startDate:
-                        return
-                    # return the value in minutes
-                    value = round((stopDate - startDate).total_seconds() / 60, 2)
-                    if self.entity_description.round_digits is not None:
-                        return round(value, self.entity_description.round_digits)
-
-                if startDate is not None and mvDate is not None and self.entity_description.key == 'custom_transaction_socket_2_charging_time':
-                    startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
-                    mvDate = datetime.datetime.strptime(mvDate, '%Y-%m-%d %H:%M:%S')
-
-                    if mvDate < startDate:
-                        return 0
-                    # return the value in minutes
-                    value= round((mvDate - startDate).total_seconds() / 60, 2)
-                    if self.entity_description.round_digits is not None:
-                        return round(value, self.entity_description.round_digits)
-
+        # Custom code for transaction and tag
+        for socketNr in [1,2]:
+            value = self._customTransactionCode(socketNr)
+            if value is not None:
+                return value
 
 
         for prop in self._device.properties:
