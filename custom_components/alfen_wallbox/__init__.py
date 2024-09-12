@@ -20,6 +20,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 
 from .alfen import AlfenDevice
 from .const import DOMAIN, TIMEOUT
+from homeassistant.util.ssl import get_default_context, get_default_no_verify_context
 
 PLATFORMS = [
     Platform.SENSOR,

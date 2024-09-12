@@ -2,13 +2,15 @@
 import datetime
 import json
 import logging
-import ssl
+from ssl import CERT_NONE
+
 
 from aiohttp import ClientResponse
 from urllib3 import disable_warnings
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util.ssl import get_default_context, get_default_no_verify_context
 
 from .const import (
     ALFEN_PRODUCT_MAP,
@@ -94,10 +96,10 @@ class AlfenDevice:
         disable_warnings()
 
         # Default ciphers needed as of python 3.10
-        context = ssl.create_default_context()
+        context = get_default_context()
         context.set_ciphers("DEFAULT")
         context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
+        context.verify_mode = CERT_NONE
         self.ssl = context
 
     async def init(self):
