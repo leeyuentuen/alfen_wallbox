@@ -1,10 +1,11 @@
 """Support for Alfen Eve Proline Wallbox."""
 
-import logging
 from dataclasses import dataclass
+import logging
 from typing import Final
 
 import voluptuous as vol
+
 from homeassistant.components.number import (
     NumberDeviceClass,
     NumberEntity,
@@ -19,8 +20,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import entity_platform
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (

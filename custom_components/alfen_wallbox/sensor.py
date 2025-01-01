@@ -1,8 +1,7 @@
 """Support for Alfen Eve Single Proline Wallbox."""
 
-import datetime
-
 from dataclasses import dataclass
+import datetime
 from typing import Final
 
 from homeassistant.components.sensor import (
@@ -1823,7 +1822,7 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         return None
 
     @property
-    def state(self) -> StateType:
+    def state(self) -> StateType:  # noqa: C901
         """Return the state of the sensor."""
         # state of none Api param
         if self.entity_description.api_param is None:

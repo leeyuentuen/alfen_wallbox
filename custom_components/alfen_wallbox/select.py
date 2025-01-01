@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Final
 
 import voluptuous as vol
+
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_platform
@@ -290,18 +291,19 @@ async def async_setup_entry(
     entry: AlfenConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Add Alfen Select from a config_entry"""
+    """Add Alfen Select from a config_entry."""
 
     selects = [AlfenSelect(entry, description) for description in ALFEN_SELECT_TYPES]
 
     async_add_entities(selects)
 
-    # if device.number_socket == 2:
-    #     numbers = [
-    #         AlfenSelect(device, description)
-    #         for description in ALFEN_SELECT_DUAL_SOCKET_TYPES
-    #     ]
-    #     async_add_entities(numbers)
+    coordinator = entry.runtime_data
+    if coordinator.device.number_socket == 2:
+        numbers = [
+            AlfenSelect(coordinator.device, description)
+            for description in ALFEN_SELECT_DUAL_SOCKET_TYPES
+        ]
+        async_add_entities(numbers)
 
     platform = entity_platform.current_platform.get()
 
