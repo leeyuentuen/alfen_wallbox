@@ -50,6 +50,7 @@ class AlfenDevice:
         username: str,
         password: str,
         category_options: list,
+        verify_ssl: bool = False,
     ) -> None:
         """Init."""
 
@@ -58,6 +59,7 @@ class AlfenDevice:
         self._status = None
         self._session = session
         self.username = username
+        self._verify_ssl = verify_ssl
         self.category_options = category_options
         self.info = None
         self.id = None
@@ -66,7 +68,6 @@ class AlfenDevice:
         self.password = password
         self.properties = []
         self.licenses = []
-        self._session.verify = False
         self.keep_logout = False
         self.number_socket = 1
         self.max_allowed_phases = 1
@@ -75,15 +76,18 @@ class AlfenDevice:
         self.transaction_counter = 0
         self.static_properties = []
         self.get_static_properties = True
+        self.ssl = None
 
-        # disable_warnings()
+        if not self._verify_ssl:
+            self._session.verify = False
+            disable_warnings()
 
-        # # Default ciphers needed as of python 3.10
-        # context = ssl.create_default_context()
-        # context.set_ciphers("DEFAULT")
-        # context.check_hostname = False
-        # context.verify_mode = ssl.CERT_NONE
-        # self.ssl = context
+            # Default ciphers needed as of python 3.10
+            context = ssl.create_default_context()
+            context.set_ciphers("DEFAULT")
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            self.ssl = context
 
     async def init(self) -> bool:
         """Initialize the Alfen API."""
@@ -112,7 +116,7 @@ class AlfenDevice:
 
     async def get_info(self) -> bool:
         """Get info from the API."""
-        response = await self._session.get(url=self.__get_url(INFO))  # , ssl=self.ssl)
+        response = await self._session.get(url=self.__get_url(INFO), ssl=self.ssl)
         _LOGGER.debug("Response %s", str(response))
 
         if response.status == 200:
@@ -147,6 +151,31 @@ class AlfenDevice:
             "name": self.name,
             "sw_version": self.info.firmware_version,
         }
+
+    @property
+    def verify_ssl(self) -> str:
+        """Return the SSL parameter."""
+        return self._verify_ssl
+
+    @verify_ssl.setter
+    def verify_ssl(self, verify_ssl) -> None:
+        """Change the SSL config."""
+        self._verify_ssl = verify_ssl
+
+        if self._verify_ssl:
+            self.ssl = None
+            self._session.verify = True
+            return
+
+        disable_warnings()
+
+        # Default ciphers needed as of python 3.10
+        context = ssl.create_default_context()
+        context.set_ciphers("DEFAULT")
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        self.ssl = context
+        self._session.verify = False
 
     async def async_update(self) -> bool:
         """Update the device properties."""
@@ -190,7 +219,7 @@ class AlfenDevice:
                 json=payload,
                 headers=POST_HEADER_JSON,
                 timeout=DEFAULT_TIMEOUT,
-                # ssl=self.ssl,
+                ssl=self.ssl,
             ) as response:
                 if response.status == 401 and allowed_login:
                     _LOGGER.debug("POST with login")
@@ -205,9 +234,9 @@ class AlfenDevice:
                 return None
 
             _LOGGER.error("JSONDecodeError error on POST %s", str(e))
-        except TimeoutError as e:
+        except TimeoutError:
             _LOGGER.warning("Timeout on POST")
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
             _LOGGER.error("Unexpected error on POST %s", str(e))
 
         return None
@@ -218,8 +247,7 @@ class AlfenDevice:
         """Send a GET request to the API."""
         try:
             async with self._session.get(
-                url,
-                timeout=DEFAULT_TIMEOUT,  # , ssl=self.ssl
+                url, timeout=DEFAULT_TIMEOUT, ssl=self.ssl
             ) as response:
                 if response.status == 401 and allowed_login:
                     _LOGGER.debug("GET with login")
@@ -232,10 +260,10 @@ class AlfenDevice:
                 else:
                     _resp = await response.text()
                 return _resp
-        except TimeoutError as e:
+        except TimeoutError:
             _LOGGER.warning("Timeout on GET")
             return None
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
             _LOGGER.error("Unexpected error on GET %s", str(e))
             return None
 
@@ -252,8 +280,8 @@ class AlfenDevice:
                     PARAM_DISPLAY_NAME: DISPLAY_NAME_VALUE,
                 },
             )
-            _LOGGER.debug(f"Login response {response}")
-        except Exception as e:  # pylint: disable=broad-except
+            _LOGGER.debug("Login response %s", response)
+        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
             _LOGGER.error("Unexpected error on LOGIN %s", str(e))
             return
 
@@ -263,7 +291,7 @@ class AlfenDevice:
         try:
             response = await self._post(cmd=LOGOUT, allowed_login=False)
             _LOGGER.debug("Logout response %s", str(response))
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
             _LOGGER.error("Unexpected error on LOGOUT %s", str(e))
             return
 
@@ -277,8 +305,7 @@ class AlfenDevice:
                 json={api_param: {ID: api_param, VALUE: str(value)}},
                 headers=POST_HEADER_JSON,
                 timeout=DEFAULT_TIMEOUT,
-                # ,
-                # ssl=self.ssl,
+                ssl=self.ssl,
             ) as response:
                 if response.status == 401 and allowed_login:
                     _LOGGER.debug("POST(Update) with login")
@@ -286,7 +313,7 @@ class AlfenDevice:
                     return await self._update_value(api_param, value, False)
                 response.raise_for_status()
                 return response
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
             _LOGGER.error("Unexpected error on UPDATE VALUE %s", str(e))
             return None
 
@@ -487,7 +514,7 @@ class AlfenDevice:
         """Send a request to the API."""
         try:
             return await self.request(method, cmd, json_data)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
             _LOGGER.error("Unexpected error async request %s", str(e))
             return None
 

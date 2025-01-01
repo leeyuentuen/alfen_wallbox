@@ -1,23 +1,32 @@
 """Class representing a Alfen Wallbox update coordinator."""
 
-import asyncio
-import logging
+from asyncio import timeout
 from datetime import timedelta
+import logging
 
-import async_timeout
 from aiohttp import ClientConnectionError
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (CONF_HOST, CONF_NAME, CONF_PASSWORD,
-                                 CONF_SCAN_INTERVAL, CONF_TIMEOUT,
-                                 CONF_USERNAME)
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_SCAN_INTERVAL,
+    CONF_TIMEOUT,
+    CONF_USERNAME,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
-                                                      UpdateFailed)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .alfen import AlfenDevice
-from .const import (CONF_REFRESH_CATEGORIES, DEFAULT_REFRESH_CATEGORIES,
-                    DEFAULT_SCAN_INTERVAL, DEFAULT_TIMEOUT, DOMAIN)
+from .const import (
+    CONF_REFRESH_CATEGORIES,
+    DEFAULT_REFRESH_CATEGORIES,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_TIMEOUT,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +70,7 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
     async def _async_update_data(self) -> None:
         """Fetch data from API endpoint."""
 
-        async with async_timeout.timeout(self.timeout):
+        async with timeout(self.timeout):
             if not await self.device.async_update():
                 raise UpdateFailed("Error updating")
 
@@ -72,7 +81,7 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
         """Connect to the API endpoint."""
 
         try:
-            async with asyncio.timeout(self.timeout):
+            async with timeout(self.timeout):
                 return await self.device.init()
         except TimeoutError:
             _LOGGER.debug("Connection to %s timed out", self.entry.data[CONF_HOST])
@@ -84,7 +93,7 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
                 str(e),
             )
             return False
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
             _LOGGER.error(
                 "Unexpected error creating device %s %s",
                 self.entry.data[CONF_HOST],

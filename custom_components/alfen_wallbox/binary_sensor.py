@@ -1,7 +1,7 @@
 """Support for Alfen Eve Proline binary sensors."""
 
-import logging
 from dataclasses import dataclass
+import logging
 from typing import Final
 
 from homeassistant.components.binary_sensor import (

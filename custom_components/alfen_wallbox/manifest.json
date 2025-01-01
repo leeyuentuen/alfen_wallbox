@@ -1,7 +1,7 @@
 {
     "domain": "alfen_wallbox",
     "name": "Alfen Wallbox",
-    "version": "2.9.0",
+    "version": "2.9.2-beta-4",
     "config_flow": true,
     "documentation": "https://github.com/leeyuentuen/alfen_wallbox",
     "dependencies": [],
