@@ -3,10 +3,8 @@
 import datetime
 import json
 import logging
-import ssl
 
 from aiohttp import ClientResponse, ClientSession
-from urllib3 import disable_warnings
 
 from .const import (
     ALFEN_PRODUCT_MAP,
@@ -208,7 +206,8 @@ class AlfenDevice:
         """Send a GET request to the API."""
         try:
             async with self._session.get(
-                url, timeout=DEFAULT_TIMEOUT,
+                url,
+                timeout=DEFAULT_TIMEOUT,
             ) as response:
                 if response.status == 401 and allowed_login:
                     _LOGGER.debug("GET with login")
