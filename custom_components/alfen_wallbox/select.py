@@ -51,9 +51,10 @@ PHASE_ROTATION_DICT: Final[dict[str, str]] = {
 
 AUTH_MODE_DICT: Final[dict[str, int]] = {"Plug and Charge": 0, "RFID": 2}
 
-LOAD_BALANCE_MODE_DICT: Final[dict[str, int]] = {
-    "Modbus TCP/IP": 0,
-    "DSMR4.x / SMR5.0 (P1)": 3,
+LOAD_BALANCE_PROTOCOL_DICT: Final[dict[str, int]] = {
+    "Energy Management System": -1,
+    "Modbus TCP/IP": 4,
+    "DSMR4.x/SMR5.0 (P1)": 5,
 }
 
 LOAD_BALANCE_DATA_SOURCE_DICT: Final[dict[str, int]] = {
@@ -161,12 +162,12 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         api_param="2126_0",
     ),
     AlfenSelectDescription(
-        key="load_balancing_mode",
-        name="Load Balancing Mode",
+        key="load_balancing_protocol",
+        name="Load Balancing Protocol",
         icon="mdi:scale-balance",
-        options=list(LOAD_BALANCE_MODE_DICT),
-        options_dict=LOAD_BALANCE_MODE_DICT,
-        api_param="2064_0",
+        options=list(LOAD_BALANCE_PROTOCOL_DICT),
+        options_dict=LOAD_BALANCE_PROTOCOL_DICT,
+        api_param="5217_0",
     ),
     AlfenSelectDescription(
         key="lb_active_balancing_received_measurements",

@@ -72,6 +72,11 @@ ALFEN_BINARY_SENSOR_TYPES: Final[tuple[AlfenSwitchDescription, ...]] = (
         name="Proxy Enabled",
         api_param="2117_0",
     ),
+    AlfenSwitchDescription(
+        key="active_load_balancing",
+        name="Active Load Balancing",
+        api_param="2064_0",
+    ),
 )
 
 
@@ -132,7 +137,7 @@ class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
         """Return True if entity is on."""
         for prop in self.coordinator.device.properties:
             if prop[ID] == self.entity_description.api_param:
-                return prop[VALUE] == 1
+                return prop[VALUE] == 1 or 3
 
         return False
 
@@ -147,7 +152,14 @@ class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
         # Do the turning on.
-        await self.coordinator.device.set_value(self.entity_description.api_param, 1)
+        if self.entity_description.api_param == "2064_0":
+            on_value = 3
+        else:
+            on_value = 1
+
+        await self.coordinator.device.set_value(
+            self.entity_description.api_param, on_value
+        )
         await self.coordinator.device.async_update()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
