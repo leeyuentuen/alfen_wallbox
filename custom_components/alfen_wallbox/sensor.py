@@ -1856,7 +1856,7 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 stopDate2 = value
                 continue
             if key[0] == "socket 2" and key[1] == "last_start" and key[2] == "date":
-                lastDate = value
+                lastDate2 = value
                 continue
 
         if (

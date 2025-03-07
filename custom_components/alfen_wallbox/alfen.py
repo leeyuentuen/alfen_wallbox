@@ -77,6 +77,8 @@ class AlfenDevice:
         self.get_static_properties = True
         self.logged_in = False
         self.last_updated = None
+        self.logs = []
+        self.latest_log_id = None
 
     async def init(self) -> bool:
         """Initialize the Alfen API."""
@@ -171,7 +173,7 @@ class AlfenDevice:
 
             if self.transaction_counter > 60:
                 self.transaction_counter = 0
-
+        await self._get_log()
         return True
 
     async def _post(
@@ -370,6 +372,80 @@ class AlfenDevice:
         response = await self._post(cmd=CMD, payload=command)
         _LOGGER.debug("Run Command response %s", str(response))
 
+    async def _get_log(self):
+        """Get the log."""
+        log_offset = 0
+        response = await self._get(
+            url=self.__get_url("log?offset=" + str(log_offset)),
+            json_decode=False,
+        )
+        index = response.find("_")
+        if index == -1 or index >= 20:
+            return
+        log_id = response[:index]
+        if self.latest_log_id is not None:
+            if self.latest_log_id >= log_id:
+                return
+        else:
+            self.latest_log_id = log_id
+
+        while response:
+            # _LOGGER.debug(response)
+            self.logs.append(response)
+            log_offset += 1
+            response = await self._get(
+                url=self.__get_url("log?offset=" + str(log_offset)),
+                json_decode=False,
+            )
+            if log_offset > 50:
+                break
+        # _LOGGER.debug(self.log_offset)
+        # reverse the logs order
+        self.logs.reverse()
+        for log in self.logs:
+            # split on \n
+            lines = log.splitlines()
+            for line in lines:
+                # get the index of _
+                index = line.find("_")
+                if index == -1 or index >= 20:
+                    continue
+                id = line[:index]
+                # substring on : so we get the date and time
+                line = line[index + 1 :]
+                index = line.split(":")
+                # if we have less then 7 then we skip it
+                if len(index) < 7:
+                    continue
+                # get the date and time
+                date = index[0] + ":" + index[1] + ":" + index[2]
+                # type of log
+                type = index[3]
+                # filename
+                filename = index[4]
+                # line number
+                line = index[5]
+                # message
+                message = index[6]
+                # show the rest of all the index after 5
+                for i in range(7, len(index)):
+                    message += ":" + index[i]
+
+                # if contains 'EV_CONNECTED_AUTHORIZED' then we have a tag
+                # Socket #1: main state: EV_CONNECTED_AUTHORIZED, CP: 8.8/8.9, tag: xxxxxxx
+                if "EV_CONNECTED_AUTHORIZED" in message and "tag:" in message:
+                    # check which socket we have
+                    socket = ""
+                    if "Socket #1" in message:
+                        socket = "1"
+                    elif "Socket #2" in message:
+                        socket = "2"
+                    self.latest_tag["socket " + socket, "start", "tag"] = message.split(
+                        "tag: ", 2
+                    )[1]
+                    # _LOGGER.warning(self.latest_tag)
+                # _LOGGER.debug(message)
+
     async def _get_transaction(self):
         _LOGGER.debug("Get Transaction")
         offset = self.transaction_offset
@@ -391,7 +467,7 @@ class AlfenDevice:
                 break
 
             for line in lines:
-                # _LOGGER.debug("Line: %s", line)
+                _LOGGER.debug("Line: %s", line)
                 if line is None:
                     transactionLoop = False
                     break
