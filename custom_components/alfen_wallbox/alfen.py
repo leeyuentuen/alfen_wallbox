@@ -1,9 +1,11 @@
 """Alfen Wallbox API."""
 
 import asyncio
+from collections import deque
 import datetime
 import json
 import logging
+import re
 from ssl import SSLContext
 
 from aiohttp import ClientResponse, ClientSession
@@ -40,6 +42,14 @@ from .const import (
 POST_HEADER_JSON = {"Content-Type": "application/json"}
 
 _LOGGER = logging.getLogger(__name__)
+
+# Regex pattern for parsing log entries
+# Format: <line_id>_<date>:<time>:<type>:<filename>:<line>:<message>
+LOG_PATTERN = re.compile(r'^(\d+)_(.+?):(.+?):(.+?):(.+?):(.+?):(.+)$')
+# Pattern for extracting socket number from log messages
+SOCKET_PATTERN = re.compile(r'Socket #(\d+)')
+# Pattern for extracting tag from log messages
+TAG_PATTERN = re.compile(r'tag:\s*(\S+)')
 
 
 class AlfenDevice:
@@ -79,11 +89,13 @@ class AlfenDevice:
         self.get_static_properties = True
         self.logged_in = False
         self.last_updated = None
-        self.latest_logs = []
+        # Use deque with maxlen to limit memory usage
+        self.latest_logs = deque(maxlen=500)
         # prevent multiple call to wallbox
-        self.lock = False
+        self._lock = asyncio.Lock()
         self.update_values = {}
-        self.updating = False
+        self._updating_lock = asyncio.Lock()
+        self._update_values_lock = asyncio.Lock()
 
     async def init(self) -> bool:
         """Initialize the Alfen API."""
@@ -148,15 +160,21 @@ class AlfenDevice:
         """Update the device properties."""
         if self.keep_logout:
             return True
-        if self.updating:
-            return True
 
-        try:
-            self.updating = True
+        update_start = datetime.datetime.now()
+
+        # Use a proper lock to prevent concurrent updates
+        async with self._updating_lock:
             # we update first the self.update_values
             # copy the values to other dict
             # we need to copy the values to avoid the dict changed size error
-            values = self.update_values.copy()
+            async with self._update_values_lock:
+                values = self.update_values.copy()
+
+            # Process pending value updates
+            if values:
+                _LOGGER.debug("Processing %d pending value updates", len(values))
+
             for value in values.values():
                 response = await self._update_value(value["api_param"], value["value"])
 
@@ -172,56 +190,58 @@ class AlfenDevice:
                         prop[VALUE] = value["value"]
                         self.properties[value["api_param"]] = prop
                     # remove the update from the list
-                    del self.update_values[value["api_param"]]
-        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
-            _LOGGER.error("Unexpected error on update %s", str(e))
-            self.updating = False
-            return False
-        finally:
-            self.updating = False
+                    async with self._update_values_lock:
+                        if value["api_param"] in self.update_values:
+                            del self.update_values[value["api_param"]]
+                else:
+                    # Log failure but don't remove from update_values so it will retry
+                    _LOGGER.warning(
+                        "Failed to update %s to %s - will retry on next update cycle",
+                        value["api_param"],
+                        value["value"],
+                    )
 
-        self.last_updated = datetime.datetime.now()
-        dynamic_properties = []
-        if self.get_static_properties:
-            self.static_properties = []
+            self.last_updated = datetime.datetime.now()
 
-        for cat in CATEGORIES:
-            if cat in (CAT_TRANSACTIONS, CAT_LOGS):
-                continue
-            if cat in self.category_options:
-                dynamic_properties = (
-                    dynamic_properties + await self._get_all_properties_value(cat)
-                )
-            elif self.get_static_properties:
-                self.static_properties = (
-                    self.static_properties + await self._get_all_properties_value(cat)
-                )
-        self.properties = {}
-        # for each properties (statis and dynamic, use the ID as index)
-        for prop in dynamic_properties:
-            # check if the ID is already in the properties
-            propId = prop[ID]
-            self.properties[propId] = prop
+            # Fetch static properties only once
+            if self.get_static_properties:
+                self.static_properties = []
+                static_cats = [cat for cat in CATEGORIES if cat not in (CAT_TRANSACTIONS, CAT_LOGS) and cat not in self.category_options]
+                for cat in static_cats:
+                    props = await self._get_all_properties_value(cat)
+                    self.static_properties.extend(props)
+                self.get_static_properties = False
 
-        for prop in self.static_properties:
-            # check if the ID is already in the properties
-            propId = prop[ID]
-            self.properties[propId] = prop
+            # Fetch dynamic properties
+            dynamic_properties = []
+            for cat in self.category_options:
+                if cat not in (CAT_TRANSACTIONS, CAT_LOGS):
+                    props = await self._get_all_properties_value(cat)
+                    dynamic_properties.extend(props)
 
-        self.get_static_properties = False
+            # Build properties dict using comprehension (more efficient)
+            # Static properties are loaded once, dynamic properties update each cycle
+            self.properties = {prop[ID]: prop for prop in self.static_properties}
+            self.properties.update({prop[ID]: prop for prop in dynamic_properties})
 
-        if CAT_LOGS in self.category_options:
-            await self._get_log()
+            if CAT_LOGS in self.category_options:
+                await self._get_log()
 
-        if CAT_TRANSACTIONS in self.category_options:
-            if self.transaction_counter == 0:
-                await self._get_transaction()
-            self.transaction_counter += 1
+            # Only fetch transactions every 60th update cycle (reduces API load)
+            # With 5s scan interval, this means every ~5 minutes
+            if CAT_TRANSACTIONS in self.category_options:
+                self.transaction_counter = (self.transaction_counter + 1) % 60
+                if self.transaction_counter == 0:
+                    await self._get_transaction()
 
-            if self.transaction_counter > 60:
-                self.transaction_counter = 0
+            # Log total update time for monitoring
+            update_duration = (datetime.datetime.now() - update_start).total_seconds()
+            if update_duration > 2:
+                _LOGGER.info("Update cycle completed in %.2fs", update_duration)
+            else:
+                _LOGGER.debug("Update cycle completed in %.2fs", update_duration)
 
-        return True
+            return True
 
     async def _post(
         self, cmd, payload=None, allowed_login=True
@@ -230,43 +250,46 @@ class AlfenDevice:
         if self.keep_logout:
             return None
 
-        if self.lock:
-            return None
-
-        try:
-            self.lock = True
-            _LOGGER.debug("Send Post Request")
-            async with self._session.post(
-                url=self.__get_url(cmd),
-                json=payload,
-                headers=POST_HEADER_JSON,
-                timeout=DEFAULT_TIMEOUT,
-                ssl=self.ssl,
-            ) as response:
-                if response.status == 401 and allowed_login:
-                    self.lock = False
-                    self.logged_in = False
-                    _LOGGER.debug("POST with login")
-                    await self.login()
-                    return await self._post(cmd, payload, False)
-                response.raise_for_status()
-                self.lock = False
-                return response
-        except json.JSONDecodeError as e:
-            # skip tailing comma error from alfen
-            _LOGGER.debug("trailing comma is not allowed")
-            if e.msg == "trailing comma is not allowed":
+        needs_auth = False
+        async with self._lock:
+            try:
+                _LOGGER.debug("Send Post Request")
+                async with self._session.post(
+                    url=self.__get_url(cmd),
+                    json=payload,
+                    headers=POST_HEADER_JSON,
+                    timeout=DEFAULT_TIMEOUT,
+                    ssl=self.ssl,
+                ) as response:
+                    if response.status == 401 and allowed_login:
+                        self.logged_in = False
+                        _LOGGER.debug("POST with login - will retry after lock release")
+                        needs_auth = True
+                    else:
+                        response.raise_for_status()
+                        # Process response inside context manager
+                        try:
+                            result = await response.json(content_type=None)
+                            return result
+                        except json.JSONDecodeError as e:
+                            # skip tailing comma error from alfen
+                            if e.msg == "trailing comma is not allowed":
+                                _LOGGER.debug("trailing comma is not allowed")
+                                return None
+                            _LOGGER.error("JSONDecodeError error on POST %s", str(e))
+                            raise
+            except TimeoutError:
+                _LOGGER.warning("Timeout on POST")
+                return None
+            except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
+                if not allowed_login:
+                    _LOGGER.error("Unexpected error on POST %s", str(e))
                 return None
 
-            _LOGGER.error("JSONDecodeError error on POST %s", str(e))
-            self.lock = False
-        except TimeoutError:
-            _LOGGER.warning("Timeout on POST")
-            self.lock = False
-        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
-            if not allowed_login:
-                _LOGGER.error("Unexpected error on POST %s", str(e))
-            self.lock = False
+        # After lock is released, handle reauth if needed
+        if needs_auth:
+            await self.login()
+            return await self._post(cmd, payload, False)
 
     async def _get(
         self, url, allowed_login=True, json_decode=True
@@ -275,39 +298,36 @@ class AlfenDevice:
         if self.keep_logout:
             return None
 
-        if self.lock:
-            return None
+        needs_auth = False
+        async with self._lock:
+            try:
+                async with self._session.get(
+                    url, timeout=DEFAULT_TIMEOUT, ssl=self.ssl
+                ) as response:
+                    if response.status == 401 and allowed_login:
+                        self.logged_in = False
+                        _LOGGER.debug("GET with login - will retry after lock release")
+                        needs_auth = True
+                    else:
+                        response.raise_for_status()
+                        # Process response inside context manager
+                        if json_decode:
+                            result = await response.json(content_type=None)
+                        else:
+                            result = await response.text()
+                        return result
+            except TimeoutError:
+                _LOGGER.warning("Timeout on GET")
+                return None
+            except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
+                if not allowed_login:
+                    _LOGGER.error("Unexpected error on GET %s", str(e))
+                return None
 
-        try:
-            self.lock = True
-            async with self._session.get(
-                url, timeout=DEFAULT_TIMEOUT, ssl=self.ssl
-            ) as response:
-                if response.status == 401 and allowed_login:
-                    self.lock = False
-                    self.logged_in = False
-                    _LOGGER.debug("GET with login")
-                    await self.login()
-                    return await self._get(
-                        url=url, allowed_login=False, json_decode=False
-                    )
-
-                response.raise_for_status()
-                if json_decode:
-                    _resp = await response.json(content_type=None)
-                else:
-                    _resp = await response.text()
-                self.lock = False
-                return _resp
-        except TimeoutError:
-            _LOGGER.warning("Timeout on GET")
-            self.lock = False
-            return None
-        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
-            if not allowed_login:
-                _LOGGER.error("Unexpected error on GET %s", str(e))
-            self.lock = False
-            return None
+        # After lock is released, handle reauth if needed
+        if needs_auth:
+            await self.login()
+            return await self._get(url=url, allowed_login=False, json_decode=json_decode)
 
     async def login(self):
         """Login to the API."""
@@ -351,32 +371,36 @@ class AlfenDevice:
         if self.keep_logout:
             return None
 
-        if self.lock:
-            return None
+        needs_auth = False
+        async with self._lock:
+            try:
+                async with self._session.post(
+                    url=self.__get_url(PROP),
+                    json={api_param: {ID: api_param, VALUE: str(value)}},
+                    headers=POST_HEADER_JSON,
+                    timeout=DEFAULT_TIMEOUT,
+                    ssl=self.ssl,
+                ) as response:
+                    if response.status == 401 and allowed_login:
+                        self.logged_in = False
+                        _LOGGER.debug("POST(Update) with login - will retry after lock release")
+                        needs_auth = True
+                    else:
+                        response.raise_for_status()
+                        # Return True to indicate success
+                        return True
+            except TimeoutError:
+                _LOGGER.warning("Timeout on UPDATE VALUE")
+                return None
+            except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
+                if not allowed_login:
+                    _LOGGER.error("Unexpected error on UPDATE VALUE %s", str(e))
+                return None
 
-        try:
-            self.lock = True
-            async with self._session.post(
-                url=self.__get_url(PROP),
-                json={api_param: {ID: api_param, VALUE: str(value)}},
-                headers=POST_HEADER_JSON,
-                timeout=DEFAULT_TIMEOUT,
-                ssl=self.ssl,
-            ) as response:
-                if response.status == 401 and allowed_login:
-                    self.logged_in = False
-                    self.lock = False
-                    _LOGGER.debug("POST(Update) with login")
-                    await self.login()
-                    return await self._update_value(api_param, value, False)
-                response.raise_for_status()
-                self.lock = False
-                return response
-        except Exception as e:  # pylint: disable=broad-except  # noqa: BLE001
-            if not allowed_login:
-                _LOGGER.error("Unexpected error on UPDATE VALUE %s", str(e))
-            self.lock = False
-            return None
+        # After lock is released, handle reauth if needed
+        if needs_auth:
+            await self.login()
+            return await self._update_value(api_param, value, False)
 
     async def _get_value(self, api_param):
         """Get a value from the API."""
@@ -393,8 +417,6 @@ class AlfenDevice:
 
     async def _get_all_properties_value(self, category: str) -> list:
         """Get all properties from the API."""
-        _LOGGER.debug("Get properties")
-
         properties = []
         tx_start = datetime.datetime.now()
         nextRequest = True
@@ -405,28 +427,41 @@ class AlfenDevice:
             attempt += 1
             cmd = f"{PROP}?{CAT}={category}&{OFFSET}={offset}"
             response = await self._get(url=self.__get_url(cmd))
-            # _LOGGER.debug("Status Response %s: %s", cmd, str(response))
 
             if response is not None:
                 attempt = 0
                 # if response is a string, convert it to json
                 if isinstance(response, str):
-                    response = json.loads(response)
+                    try:
+                        response = json.loads(response)
+                    except json.JSONDecodeError:
+                        _LOGGER.error("Failed to parse JSON response for category %s", category)
+                        break
+
+                # Validate response structure
+                if PROPERTIES not in response or TOTAL not in response:
+                    _LOGGER.warning("Invalid response structure for category %s", category)
+                    break
+
                 # merge the properties with response properties
-                properties += response[PROPERTIES]
+                properties.extend(response[PROPERTIES])
                 nextRequest = response[TOTAL] > (offset + len(response[PROPERTIES]))
                 offset += len(response[PROPERTIES])
             elif attempt >= 3:
                 # This only possible in case of series of timeouts or unknown exceptions in self._get()
                 # It's better to break completely, otherwise we can provide partial data in self.properties.
-                _LOGGER.debug("Returning earlier after %s attempts", str(attempt))
+                _LOGGER.warning("Failed to fetch %s after %d attempts, returning partial data", category, attempt)
                 break
             else:
-                await asyncio.sleep(5)
+                # Brief backoff before retry
+                await asyncio.sleep(2)
 
-        # _LOGGER.debug("Properties %s", str(properties))
         runtime = datetime.datetime.now() - tx_start
-        _LOGGER.debug("Called %s in %.2f seconds", category, runtime.total_seconds())
+        if properties:
+            _LOGGER.debug("Fetched %d properties from %s in %.2fs", len(properties), category, runtime.total_seconds())
+        else:
+            _LOGGER.warning("No properties fetched from %s (took %.2fs)", category, runtime.total_seconds())
+
         return properties
 
     async def reboot_wallbox(self):
@@ -456,111 +491,79 @@ class AlfenDevice:
             return None
         lines = response.splitlines()
 
-        # we need to get all the log between the self.lastest_log_id and the log_id before we update the self.latest_log_id
+        # Add unique lines to deque (deque automatically handles maxlen)
         for line in lines:
-            if self.latest_logs is None:
-                self.latest_logs = []
-            if line in self.latest_logs:
-                continue
-            self.latest_logs.append(line)
-            # _LOGGER.debug(line)
+            if line and line not in self.latest_logs:
+                self.latest_logs.append(line)
 
         return True
 
     async def _get_log(self):
         """Get the log."""
         log_offset = 0
-        self.latest_logs = []
+        # Clear logs only on first fetch, deque will auto-manage size
+        temp_logs = deque(maxlen=500)
+
+        # Fetch logs (max 5 pages)
         while await self._fetch_log(log_offset):
             log_offset += 1
             if log_offset > 5:
                 break
 
-        self.latest_logs.reverse()
-        for log in self.latest_logs:
-            # split on \n
-            lines = log.splitlines()
-            for linerec in lines:
-                # _LOGGER.debug(line)
-                # get the index of _
-                index = linerec.find("_")
-                if index == -1 or index >= 20:
-                    continue
-                line_id = linerec[:index]
-                # substring on : so we get the date and time
-                line = linerec[index + 1 :]
-                index = line.split(":")
-                # if we have less then 7 then we skip it
-                if len(index) < 7:
-                    continue
-                # get the date and time
-                date = index[0] + ":" + index[1] + ":" + index[2]
-                # type of log
-                type = index[3]
-                # filename
-                filename = index[4]
-                # line number
-                line = index[5]
-                # message
-                message = index[6]
-                # show the rest of all the index after 5
-                for i in range(7, len(index)):
-                    message += ":" + index[i]
-                # _LOGGER.debug(message)
-                # if contains 'EV_CONNECTED_AUTHORIZED' then we have a tag
-                # Socket #1: main state: EV_CONNECTED_AUTHORIZED, CP: 8.8/8.9, tag: xxxxxxx
-                if (
-                    "EV_CONNECTED_AUTHORIZED" in message
-                    or "CHARGING_POWER_ON" in message
-                    or "CABLE_CONNECTED" in message
-                ) and "tag:" in message:
-                    # check which socket we have
-                    socket = ""
-                    if "Socket #1" in message:
-                        socket = "1"
-                    elif "Socket #2" in message:
-                        socket = "2"
-                    if self.latest_tag is None:
-                        self.latest_tag = {}
-                    split = message.split("tag: ", 2)
-                    # store the log id in the value, we only override if the id > then the previous id
-                    tag = "socket " + socket, "start", "tag"
-                    taglog = "socket " + socket, "start", "taglog"
-                    if taglog not in self.latest_tag:
-                        self.latest_tag[taglog] = 0
-                    if tag not in self.latest_tag:
-                        self.latest_tag[tag] = None
+        # Process logs in reverse order (most recent first)
+        if self.latest_tag is None:
+            self.latest_tag = {}
 
-                    if self.latest_tag[taglog] < int(line_id):
-                        self.latest_tag[taglog] = int(line_id)
-                        self.latest_tag[tag] = split[1]
+        for log_line in reversed(self.latest_logs):
+            # Parse log line format: <line_id>_<rest>
+            underscore_pos = log_line.find("_")
+            if underscore_pos == -1 or underscore_pos >= 20:
+                continue
 
-                # disconnect
-                if (
-                    "CHARGING_POWER_OFF" in message or "CHARGING_TERMINATING" in message
-                ) and "tag:" in message:
-                    # check which socket we have
-                    socket = ""
-                    if "Socket #1" in message:
-                        socket = "1"
-                    elif "Socket #2" in message:
-                        socket = "2"
-                    if self.latest_tag is None:
-                        self.latest_tag = {}
+            try:
+                line_id = int(log_line[:underscore_pos])
+            except ValueError:
+                continue
 
-                    # store the log id in the value, we only override if the id > then the previous id
-                    tag = "socket " + socket, "start", "tag"
-                    taglog = "socket " + socket, "start", "taglog"
-                    if taglog not in self.latest_tag:
-                        self.latest_tag[taglog] = 0
-                    if tag not in self.latest_tag:
-                        self.latest_tag[tag] = None
+            # Split remaining content by colons
+            parts = log_line[underscore_pos + 1:].split(":")
+            if len(parts) < 7:
+                continue
 
-                    if self.latest_tag[taglog] < int(line_id):
-                        self.latest_tag[taglog] = int(line_id)
-                        self.latest_tag[tag] = "No Tag"
-                    # _LOGGER.warning(self.latest_tag)
-                # _LOGGER.debug(message)
+            # Reconstruct message from parts[6] onwards
+            message = ":".join(parts[6:])
+
+            # Extract socket number if present
+            socket_match = SOCKET_PATTERN.search(message)
+            if not socket_match:
+                continue
+            socket = socket_match.group(1)
+
+            # Check for connection events with tags
+            is_connect = any(event in message for event in ("EV_CONNECTED_AUTHORIZED", "CHARGING_POWER_ON", "CABLE_CONNECTED"))
+            is_disconnect = any(event in message for event in ("CHARGING_POWER_OFF", "CHARGING_TERMINATING"))
+
+            if (is_connect or is_disconnect) and "tag:" in message:
+                tag_key = ("socket " + socket, "start", "tag")
+                taglog_key = ("socket " + socket, "start", "taglog")
+
+                # Initialize if needed
+                if taglog_key not in self.latest_tag:
+                    self.latest_tag[taglog_key] = 0
+                if tag_key not in self.latest_tag:
+                    self.latest_tag[tag_key] = None
+
+                # Only update if this is a newer log entry
+                if line_id > self.latest_tag[taglog_key]:
+                    self.latest_tag[taglog_key] = line_id
+
+                    if is_connect:
+                        # Extract tag value
+                        tag_match = TAG_PATTERN.search(message)
+                        if tag_match:
+                            self.latest_tag[tag_key] = tag_match.group(1)
+                    else:  # is_disconnect
+                        self.latest_tag[tag_key] = "No Tag"
 
     async def _get_transaction(self):
         _LOGGER.debug("Get Transaction")
@@ -730,15 +733,31 @@ class AlfenDevice:
         _LOGGER.debug("Request response %s", str(response))
         return response
 
-    def set_value(self, api_param, value):
-        """Set a value on the API."""
-        # check if the api_param is already in the update_values, update the value
-        if api_param in self.update_values:
-            self.update_values[api_param]["value"] = value
-            return
-        self.update_values[api_param] = {"api_param": api_param, "value": value}
-        # force update
-        asyncio.run_coroutine_threadsafe(self.async_update(), self._session.loop)
+    async def set_value(self, api_param, value):
+        """Set a value on the API.
+
+        Note: This queues the value for update on the next coordinator cycle.
+        The value is not sent immediately. Check logs for "Failed to update" warnings
+        if updates are not applied.
+        """
+        # Use lock to prevent race conditions when modifying update_values
+        async with self._update_values_lock:
+            # check if the api_param is already in the update_values, update the value
+            if api_param in self.update_values:
+                self.update_values[api_param]["value"] = value
+                _LOGGER.debug(
+                    "Updated queued value for %s to %s (will be sent on next update)",
+                    api_param,
+                    value,
+                )
+                return
+            self.update_values[api_param] = {"api_param": api_param, "value": value}
+            _LOGGER.debug(
+                "Queued value update for %s to %s (will be sent on next update)",
+                api_param,
+                value,
+            )
+        # Value will be sent during next async_update() call by coordinator
 
     async def get_value(self, api_param):
         """Get a value from the API."""
@@ -747,7 +766,7 @@ class AlfenDevice:
     async def set_current_limit(self, limit) -> None:
         """Set the current limit."""
         _LOGGER.debug("Set current limit %sA", str(limit))
-        if limit > 32 | limit < 1:
+        if limit > 32 or limit < 1:
             return
         await self.set_value("2129_0", limit)
 
@@ -780,14 +799,14 @@ class AlfenDevice:
     async def set_green_share(self, value) -> None:
         """Set the green share."""
         _LOGGER.debug("Set green share value %s", str(value))
-        if value < 0 | value > 100:
+        if value < 0 or value > 100:
             return
         await self.set_value("3280_2", value)
 
     async def set_comfort_power(self, value) -> None:
         """Set the comfort power."""
         _LOGGER.debug("Set Comfort Level %sW", str(value))
-        if value < 1400 | value > 5000:
+        if value < 1400 or value > 5000:
             return
         await self.set_value("3280_3", value)
 

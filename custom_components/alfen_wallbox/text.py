@@ -111,7 +111,7 @@ class AlfenText(AlfenEntity, TextEntity):
     async def async_set_value(self, value: str) -> None:
         """Update the value."""
         self._attr_native_value = value
-        self.coordinator.device.set_value(
+        await self.coordinator.device.set_value(
             self.entity_description.api_param, value
         )
         self.async_write_ha_state()

@@ -2086,7 +2086,7 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 )
 
             # Allowed phase 1 or Allowed Phase 2
-            if (self.entity_description.api_param == "312E_0") | (
+            if (self.entity_description.api_param == "312E_0") or (
                 self.entity_description.api_param == "312F_0"
             ):
                 return ALLOWED_PHASE_DICT.get(prop[VALUE], "Unknown")

@@ -84,12 +84,11 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
             async with timeout(self.timeout):
                 if not await self.device.async_update():
                     raise UpdateFailed("Error updating")
-        except TimeoutError:
-            _LOGGER.debug("Update from %s timed out", self.entry.data[CONF_HOST])
-            # wait for next update
-            # await for 60 seconds to avoid flooding the API
-            await asyncio.sleep(60)
-            self.device.lock = False
+        except TimeoutError as exc:
+            _LOGGER.warning("Update from %s timed out after %ss", self.entry.data[CONF_HOST], self.timeout)
+            # Don't sleep - let the coordinator's update_interval handle retry timing
+            # Sleeping here would block the entire coordinator
+            raise UpdateFailed("Update timed out") from exc
 
     async def async_connect(self) -> bool:
         """Connect to the API endpoint."""

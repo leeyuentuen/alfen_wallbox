@@ -162,12 +162,12 @@ class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
         else:
             on_value = 1
 
-        self.coordinator.device.set_value(self.entity_description.api_param, on_value)
+        await self.coordinator.device.set_value(self.entity_description.api_param, on_value)
         await self.coordinator.device.async_update()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
-        self.coordinator.device.set_value(self.entity_description.api_param, 0)
+        await self.coordinator.device.set_value(self.entity_description.api_param, 0)
         await self.coordinator.device.async_update()
 
     async def async_enable_phase_switching(self):

@@ -626,12 +626,12 @@ class AlfenNumber(AlfenEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
         if self.entity_description.round_digits is not None:
-            self.coordinator.device.set_value(
+            await self.coordinator.device.set_value(
                 self.entity_description.api_param,
                 round(float(value), self.entity_description.round_digits),
             )
         else:
-            self.coordinator.device.set_value(
+            await self.coordinator.device.set_value(
                 self.entity_description.api_param, int(value)
             )
         self._set_current_option()
