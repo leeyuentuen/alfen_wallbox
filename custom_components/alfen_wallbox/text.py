@@ -5,24 +5,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-from homeassistant.components.counter import VALUE
 from homeassistant.components.text import TextEntity, TextEntityDescription, TextMode
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CAT, ID
+from .const import CAT, VALUE
 from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenTextDescriptionMixin:
     """Define an entity description mixin for text entities."""
 
     api_param: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenTextDescription(TextEntityDescription, AlfenTextDescriptionMixin):
     """Class to describe an Alfen text entity."""
 
@@ -111,7 +110,7 @@ class AlfenText(AlfenEntity, TextEntity):
     async def async_set_value(self, value: str) -> None:
         """Update the value."""
         self._attr_native_value = value
-        self.coordinator.device.set_value(
+        await self.coordinator.device.set_value(
             self.entity_description.api_param, value
         )
         self.async_write_ha_state()

@@ -1,0 +1,53 @@
+# Ruff configuration for Alfen Wallbox integration
+# https://docs.astral.sh/ruff/
+
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "I",   # isort
+    "C4",  # flake8-comprehensions
+    "S",   # flake8-bandit (security)
+    "T20", # flake8-print
+    "RUF", # Ruff-specific rules
+]
+
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument
+    "S101",   # use of assert (needed for tests)
+    "T201",   # print found (we use logging)
+    "S105",   # hardcoded password (false positives in tests)
+    "S106",   # hardcoded password in function arguments
+    "B904",   # raise without from inside except (Home Assistant pattern)
+]
+
+# Allow unused variables when underscore-prefixed
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",  # assert allowed in tests
+    "S105",  # hardcoded passwords ok in tests
+    "S106",  # hardcoded passwords ok in tests
+    "B011",  # assert False ok in tests
+]
+
+[lint.isort]
+force-sort-within-sections = true
+known-first-party = ["custom_components.alfen_wallbox"]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

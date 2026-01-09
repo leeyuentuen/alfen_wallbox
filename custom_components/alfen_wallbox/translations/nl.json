@@ -3,31 +3,384 @@
         "step": {
             "user": {
                 "title": "Configureer Alfen Wallbox",
-                "description": "Voer het IP address en inloggegevens van de Alfen Wallbox in.",
+                "description": "Voer het IP-adres en inloggegevens van de Alfen Wallbox in.",
                 "data": {
                     "host": "Host",
                     "name": "Naam",
                     "username": "Gebruikersnaam",
                     "password": "Wachtwoord"
                 }
+            },
+            "reconfigure": {
+                "title": "Herconfigureer Alfen Wallbox",
+                "description": "Werk de verbindingsinstellingen voor uw Alfen Wallbox bij.",
+                "data": {
+                    "host": "Host",
+                    "username": "Gebruikersnaam",
+                    "password": "Wachtwoord"
+                }
             }
         },
         "abort": {
-            "device_timeout": "Timeout connecting to the device.",
-            "device_fail": "Unexpected error creating device.",
-            "already_configured": "Device is already configured.",
-            "invalid_current_limit": "Invalid current limit (1 - 32A)."
+            "device_timeout": "Timeout bij verbinden met het apparaat.",
+            "device_fail": "Onverwachte fout bij het aanmaken van het apparaat.",
+            "already_configured": "Apparaat is al geconfigureerd",
+            "reconfigure_successful": "Herconfiguratie succesvol"
+        },
+        "error": {
+            "cannot_connect": "Kan geen verbinding maken met de wallbox",
+            "invalid_auth": "Ongeldige inloggegevens"
         }
     },
     "options": {
         "step": {
             "init": {
                 "data": {
-                    "scan_interval": "Vernieuw interval",
-                    "timeout": "Timeout",
-                    "refresh_categories": "Selecteer de categoriën om periodiek te updaten"
+                    "scan_interval": "Vernieuwingsinterval (seconden)",
+                    "timeout": "Timeout (seconden)",
+                    "categories_per_cycle": "Categorieën per cyclus",
+                    "category_fetch_delay": "Vertraging tussen categorieën (seconden)",
+                    "refresh_categories": "Te vernieuwen categorieën"
+                },
+                "data_description": {
+                    "scan_interval": "Hoe vaak gegevens van de wallbox worden bijgewerkt (1-300 seconden)",
+                    "timeout": "Timeout voor API-aanroepen (1-30 seconden)",
+                    "categories_per_cycle": "Aantal eigenschapscategorieën om per updatecyclus op te halen (1-15)",
+                    "category_fetch_delay": "Vertraging tussen het ophalen van categorieën om de wallbox te ontlasten (0-5 seconden)",
+                    "refresh_categories": "Selecteer de categorieën om periodiek bij te werken (andere worden eenmalig bij opstarten geladen)"
                 }
             }
+        }
+    },
+    "services": {
+        "reboot_wallbox": {
+            "name": "Herstart wallbox",
+            "description": "Herstart de Alfen wallbox.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De wallbox-entiteit om te herstarten."
+                }
+            }
+        },
+        "set_current_limit": {
+            "name": "Stel stroomlimiet in",
+            "description": "Stelt de laadstroomlimiet in.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De stroomlimiet-entiteit om te wijzigen."
+                },
+                "limit": {
+                    "name": "Limiet",
+                    "description": "De nieuwe stroomlimiet in Ampère (1-32A)."
+                }
+            }
+        },
+        "enable_rfid_authorization_mode": {
+            "name": "Schakel RFID-autorisatie in",
+            "description": "Schakelt RFID-autorisatiemodus in.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De autorisatiemodus-entiteit om te wijzigen."
+                }
+            }
+        },
+        "disable_rfid_authorization_mode": {
+            "name": "Schakel RFID-autorisatie uit",
+            "description": "Schakelt RFID-autorisatiemodus uit.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De autorisatiemodus-entiteit om te wijzigen."
+                }
+            }
+        },
+        "set_current_phase": {
+            "name": "Stel huidige fase in",
+            "description": "Stelt de actieve fase voor laden in.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De faseverbinding-entiteit om te wijzigen."
+                },
+                "phase": {
+                    "name": "Fase",
+                    "description": "De te gebruiken fase (L1, L2 of L3)."
+                }
+            }
+        },
+        "enable_phase_switching": {
+            "name": "Schakel fasewisseling in",
+            "description": "Schakelt automatische fasewisseling in.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De fasewisseling-entiteit om te wijzigen."
+                }
+            }
+        },
+        "disable_phase_switching": {
+            "name": "Schakel fasewisseling uit",
+            "description": "Schakelt automatische fasewisseling uit.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De fasewisseling-entiteit om te wijzigen."
+                }
+            }
+        },
+        "set_green_share": {
+            "name": "Stel groen aandeel in",
+            "description": "Stelt het groene zonne-aandeel percentage in.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De groen aandeel-entiteit om te wijzigen."
+                },
+                "value": {
+                    "name": "Waarde",
+                    "description": "Het groene aandeel percentage (0-100%)."
+                }
+            }
+        },
+        "set_comfort_power": {
+            "name": "Stel comfortvermogen in",
+            "description": "Stelt het zonne-comfortvermogen niveau in.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De comfortvermogen-entiteit om te wijzigen."
+                },
+                "value": {
+                    "name": "Waarde",
+                    "description": "Het comfortvermogen in Watt (1400-5000W)."
+                }
+            }
+        },
+        "get_transactions": {
+            "name": "Haal transacties op",
+            "description": "Haalt laadtransactie geschiedenis op.",
+            "fields": {
+                "start": {
+                    "name": "Startdatum",
+                    "description": "Startdatum voor transactiefilter."
+                },
+                "end": {
+                    "name": "Einddatum",
+                    "description": "Einddatum voor transactiefilter."
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "status_socket_1": {
+                "name": "Status stopcontact 1"
+            },
+            "status_socket_2": {
+                "name": "Status stopcontact 2"
+            },
+            "uptime": {
+                "name": "Uptime"
+            },
+            "uptime_seconds": {
+                "name": "Uptime seconden"
+            },
+            "uptime_hours": {
+                "name": "Uptime uren"
+            },
+            "bootups": {
+                "name": "Aantal herstarts"
+            },
+            "temperature": {
+                "name": "Temperatuur"
+            },
+            "max_temperature": {
+                "name": "Maximum temperatuur"
+            },
+            "min_temperature": {
+                "name": "Minimum temperatuur"
+            },
+            "voltage_l1_socket_1": {
+                "name": "Spanning L1 stopcontact 1"
+            },
+            "voltage_l2_socket_1": {
+                "name": "Spanning L2 stopcontact 1"
+            },
+            "voltage_l3_socket_1": {
+                "name": "Spanning L3 stopcontact 1"
+            },
+            "current_l1_socket_1": {
+                "name": "Stroom L1 stopcontact 1"
+            },
+            "current_l2_socket_1": {
+                "name": "Stroom L2 stopcontact 1"
+            },
+            "current_l3_socket_1": {
+                "name": "Stroom L3 stopcontact 1"
+            },
+            "current_total_socket_1": {
+                "name": "Stroom totaal stopcontact 1"
+            },
+            "active_power_total_socket_1": {
+                "name": "Actief vermogen stopcontact 1"
+            },
+            "meter_reading_socket_1": {
+                "name": "Meterstand stopcontact 1"
+            },
+            "frequency_socket_1": {
+                "name": "Frequentie stopcontact 1"
+            },
+            "charging_box_identifier": {
+                "name": "Laadpaal identificatie"
+            },
+            "boot_reason": {
+                "name": "Opstartreden"
+            },
+            "system_date_time": {
+                "name": "Systeem datum/tijd"
+            },
+            "last_modify_datetime": {
+                "name": "Laatste configuratiewijziging"
+            }
+        },
+        "binary_sensor": {
+            "system_date_light_savings": {
+                "name": "Zomertijd"
+            },
+            "license_scn": {
+                "name": "Licentie: Smart Charging Network"
+            },
+            "license_active_loadbalancing": {
+                "name": "Licentie: Actieve loadbalancing"
+            },
+            "license_static_loadbalancing": {
+                "name": "Licentie: Statische loadbalancing"
+            },
+            "license_high_power_sockets": {
+                "name": "Licentie: 32A uitgang"
+            },
+            "license_rfid_reader": {
+                "name": "Licentie: RFID-lezer"
+            },
+            "license_personalized_display": {
+                "name": "Licentie: Gepersonaliseerd display"
+            },
+            "license_mobile_3g_4g": {
+                "name": "Licentie: Mobiel 3G/4G"
+            },
+            "license_giro_e": {
+                "name": "Licentie: Giro-e betaling"
+            },
+            "https_api_login_status": {
+                "name": "API login status"
+            }
+        },
+        "number": {
+            "alb_safe_current": {
+                "name": "Loadbalancing veilige stroom"
+            },
+            "main_normal_max_current_socket_1": {
+                "name": "Max stroom stopcontact 1"
+            },
+            "max_station_current": {
+                "name": "Max station stroom"
+            },
+            "lb_max_smart_meter_current": {
+                "name": "Max slimme meter stroom"
+            },
+            "lb_solar_charging_green_share": {
+                "name": "Zonne groen aandeel"
+            },
+            "lb_solar_charging_comfort_level": {
+                "name": "Zonne comfortniveau"
+            },
+            "dp_light_intensity": {
+                "name": "Display helderheid"
+            },
+            "heartbeat_interval": {
+                "name": "Heartbeat interval"
+            }
+        },
+        "select": {
+            "lb_solar_charging_mode": {
+                "name": "Zonne laadmodus"
+            },
+            "lb_phase_connection": {
+                "name": "Fase verbinding"
+            },
+            "auth_mode": {
+                "name": "Autorisatie modus"
+            },
+            "load_balancing_protocol": {
+                "name": "Loadbalancing protocol"
+            },
+            "display_language": {
+                "name": "Display taal"
+            }
+        },
+        "switch": {
+            "lb_enable_phase_switching": {
+                "name": "Fasewisseling"
+            },
+            "dp_light_auto_dim": {
+                "name": "Display auto dimmen"
+            },
+            "lb_solar_charging_boost": {
+                "name": "Zonne laden boost"
+            },
+            "active_load_balancing": {
+                "name": "Actieve loadbalancing"
+            },
+            "auth_white_list": {
+                "name": "Whitelist ingeschakeld"
+            },
+            "proxy_enabled": {
+                "name": "Proxy ingeschakeld"
+            }
+        },
+        "button": {
+            "reboot_wallbox": {
+                "name": "Herstart"
+            },
+            "auth_logout": {
+                "name": "API uitloggen"
+            },
+            "auth_login": {
+                "name": "API inloggen"
+            },
+            "wallbox_force_update": {
+                "name": "Forceer update"
+            },
+            "clear_transaction": {
+                "name": "Wis transacties"
+            }
+        },
+        "text": {
+            "auth_plug_and_charge_id": {
+                "name": "Plug & Charge ID"
+            },
+            "proxy_address_port": {
+                "name": "Proxy adres"
+            },
+            "proxy_username": {
+                "name": "Proxy gebruikersnaam"
+            },
+            "proxy_password": {
+                "name": "Proxy wachtwoord"
+            }
+        }
+    },
+    "issues": {
+        "connection_failed": {
+            "title": "Verbinding met wallbox mislukt",
+            "description": "Kan geen verbinding maken met de Alfen wallbox op {host}. Controleer of de wallbox is ingeschakeld en bereikbaar is op het netwerk."
+        },
+        "authentication_failed": {
+            "title": "Authenticatie mislukt",
+            "description": "Kan niet authenticeren met de Alfen wallbox. Controleer uw gebruikersnaam en wachtwoord in de integratie-instellingen."
         }
     }
 }

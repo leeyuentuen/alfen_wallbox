@@ -1,0 +1,213 @@
+{
+    "entity": {
+        "sensor": {
+            "status_socket_1": {
+                "default": "mdi:ev-plug-type2"
+            },
+            "status_socket_2": {
+                "default": "mdi:ev-plug-type2"
+            },
+            "uptime": {
+                "default": "mdi:clock-outline"
+            },
+            "uptime_seconds": {
+                "default": "mdi:clock-outline"
+            },
+            "uptime_hours": {
+                "default": "mdi:clock-outline"
+            },
+            "bootups": {
+                "default": "mdi:restart"
+            },
+            "temperature": {
+                "default": "mdi:thermometer"
+            },
+            "max_temperature": {
+                "default": "mdi:thermometer-high"
+            },
+            "min_temperature": {
+                "default": "mdi:thermometer-low"
+            },
+            "voltage_l1_socket_1": {
+                "default": "mdi:flash"
+            },
+            "voltage_l2_socket_1": {
+                "default": "mdi:flash"
+            },
+            "voltage_l3_socket_1": {
+                "default": "mdi:flash"
+            },
+            "current_l1_socket_1": {
+                "default": "mdi:current-ac"
+            },
+            "current_l2_socket_1": {
+                "default": "mdi:current-ac"
+            },
+            "current_l3_socket_1": {
+                "default": "mdi:current-ac"
+            },
+            "current_total_socket_1": {
+                "default": "mdi:current-ac"
+            },
+            "active_power_total_socket_1": {
+                "default": "mdi:flash"
+            },
+            "meter_reading_socket_1": {
+                "default": "mdi:counter"
+            },
+            "frequency_socket_1": {
+                "default": "mdi:sine-wave"
+            },
+            "charging_box_identifier": {
+                "default": "mdi:identifier"
+            },
+            "boot_reason": {
+                "default": "mdi:information-outline"
+            },
+            "system_date_time": {
+                "default": "mdi:calendar-clock"
+            },
+            "last_modify_datetime": {
+                "default": "mdi:calendar-edit"
+            }
+        },
+        "binary_sensor": {
+            "system_date_light_savings": {
+                "default": "mdi:weather-sunny"
+            },
+            "license_scn": {
+                "default": "mdi:license"
+            },
+            "license_active_loadbalancing": {
+                "default": "mdi:license"
+            },
+            "license_static_loadbalancing": {
+                "default": "mdi:license"
+            },
+            "license_high_power_sockets": {
+                "default": "mdi:license"
+            },
+            "license_rfid_reader": {
+                "default": "mdi:license"
+            },
+            "license_personalized_display": {
+                "default": "mdi:license"
+            },
+            "license_mobile_3g_4g": {
+                "default": "mdi:license"
+            },
+            "license_giro_e": {
+                "default": "mdi:license"
+            },
+            "https_api_login_status": {
+                "default": "mdi:connection"
+            }
+        },
+        "number": {
+            "alb_safe_current": {
+                "default": "mdi:current-ac"
+            },
+            "main_normal_max_current_socket_1": {
+                "default": "mdi:current-ac"
+            },
+            "max_station_current": {
+                "default": "mdi:current-ac"
+            },
+            "lb_max_smart_meter_current": {
+                "default": "mdi:current-ac"
+            },
+            "lb_solar_charging_green_share": {
+                "default": "mdi:solar-power"
+            },
+            "lb_solar_charging_comfort_level": {
+                "default": "mdi:solar-power"
+            },
+            "dp_light_intensity": {
+                "default": "mdi:brightness-6"
+            },
+            "heartbeat_interval": {
+                "default": "mdi:heart-pulse"
+            }
+        },
+        "select": {
+            "lb_solar_charging_mode": {
+                "default": "mdi:solar-power"
+            },
+            "lb_phase_connection": {
+                "default": "mdi:connection"
+            },
+            "auth_mode": {
+                "default": "mdi:shield-key"
+            },
+            "load_balancing_protocol": {
+                "default": "mdi:scale-balance"
+            },
+            "display_language": {
+                "default": "mdi:translate"
+            }
+        },
+        "switch": {
+            "lb_enable_phase_switching": {
+                "default": "mdi:swap-horizontal"
+            },
+            "dp_light_auto_dim": {
+                "default": "mdi:brightness-auto"
+            },
+            "lb_solar_charging_boost": {
+                "default": "mdi:rocket-launch"
+            },
+            "active_load_balancing": {
+                "default": "mdi:scale-balance"
+            },
+            "auth_white_list": {
+                "default": "mdi:format-list-checks"
+            },
+            "proxy_enabled": {
+                "default": "mdi:server-network"
+            }
+        },
+        "button": {
+            "reboot_wallbox": {
+                "default": "mdi:restart"
+            },
+            "auth_logout": {
+                "default": "mdi:logout"
+            },
+            "auth_login": {
+                "default": "mdi:login"
+            },
+            "wallbox_force_update": {
+                "default": "mdi:refresh"
+            },
+            "clear_transaction": {
+                "default": "mdi:delete-sweep"
+            }
+        },
+        "text": {
+            "auth_plug_and_charge_id": {
+                "default": "mdi:ev-plug-type2"
+            },
+            "proxy_address_port": {
+                "default": "mdi:server-network"
+            },
+            "proxy_username": {
+                "default": "mdi:account"
+            },
+            "proxy_password": {
+                "default": "mdi:form-textbox-password"
+            }
+        }
+    },
+    "services": {
+        "reboot_wallbox": "mdi:restart",
+        "set_current_limit": "mdi:current-ac",
+        "enable_rfid_authorization_mode": "mdi:card-account-details",
+        "disable_rfid_authorization_mode": "mdi:card-account-details-outline",
+        "set_current_phase": "mdi:sine-wave",
+        "enable_phase_switching": "mdi:swap-horizontal",
+        "disable_phase_switching": "mdi:swap-horizontal",
+        "set_green_share": "mdi:solar-power",
+        "set_comfort_power": "mdi:solar-power-variant",
+        "get_transactions": "mdi:history"
+    }
+}

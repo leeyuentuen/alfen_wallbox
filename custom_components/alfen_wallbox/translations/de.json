@@ -1,0 +1,386 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Alfen Wallbox konfigurieren",
+                "description": "Geben Sie die IP-Adresse und Anmeldeinformationen Ihrer Alfen Wallbox ein.",
+                "data": {
+                    "host": "Host",
+                    "name": "Anzeigename",
+                    "username": "Benutzername",
+                    "password": "Passwort"
+                }
+            },
+            "reconfigure": {
+                "title": "Alfen Wallbox neu konfigurieren",
+                "description": "Aktualisieren Sie die Verbindungseinstellungen für Ihre Alfen Wallbox.",
+                "data": {
+                    "host": "Host",
+                    "username": "Benutzername",
+                    "password": "Passwort"
+                }
+            }
+        },
+        "abort": {
+            "device_timeout": "Zeitüberschreitung beim Verbinden mit dem Gerät.",
+            "device_fail": "Unerwarteter Fehler beim Erstellen des Geräts.",
+            "already_configured": "Gerät ist bereits konfiguriert",
+            "reconfigure_successful": "Neukonfiguration erfolgreich"
+        },
+        "error": {
+            "cannot_connect": "Verbindung zur Wallbox fehlgeschlagen",
+            "invalid_auth": "Ungültige Anmeldedaten"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "scan_interval": "Aktualisierungsintervall (Sekunden)",
+                    "timeout": "Zeitüberschreitung (Sekunden)",
+                    "categories_per_cycle": "Kategorien pro Zyklus",
+                    "category_fetch_delay": "Verzögerung zwischen Kategorien (Sekunden)",
+                    "refresh_categories": "Zu aktualisierende Kategorien"
+                },
+                "data_description": {
+                    "scan_interval": "Wie oft Daten von der Wallbox aktualisiert werden (1-300 Sekunden)",
+                    "timeout": "Zeitüberschreitung für API-Aufrufe (1-30 Sekunden)",
+                    "categories_per_cycle": "Anzahl der Eigenschaftskategorien pro Aktualisierungszyklus (1-15)",
+                    "category_fetch_delay": "Verzögerung zwischen Kategorie-Abrufen zur Reduzierung der Wallbox-Last (0-5 Sekunden)",
+                    "refresh_categories": "Wählen Sie die Kategorien aus, die regelmäßig aktualisiert werden sollen (andere werden beim Start einmalig geladen)"
+                }
+            }
+        }
+    },
+    "services": {
+        "reboot_wallbox": {
+            "name": "Wallbox neustarten",
+            "description": "Startet die Alfen Wallbox neu.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Wallbox-Entität zum Neustarten."
+                }
+            }
+        },
+        "set_current_limit": {
+            "name": "Stromlimit setzen",
+            "description": "Setzt das Ladestromlimit.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Stromlimit-Entität zum Ändern."
+                },
+                "limit": {
+                    "name": "Limit",
+                    "description": "Das neue Stromlimit in Ampere (1-32A)."
+                }
+            }
+        },
+        "enable_rfid_authorization_mode": {
+            "name": "RFID-Autorisierung aktivieren",
+            "description": "Aktiviert den RFID-Autorisierungsmodus.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Autorisierungsmodus-Entität zum Ändern."
+                }
+            }
+        },
+        "disable_rfid_authorization_mode": {
+            "name": "RFID-Autorisierung deaktivieren",
+            "description": "Deaktiviert den RFID-Autorisierungsmodus.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Autorisierungsmodus-Entität zum Ändern."
+                }
+            }
+        },
+        "set_current_phase": {
+            "name": "Aktuelle Phase setzen",
+            "description": "Setzt die aktive Phase zum Laden.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Phasenverbindungs-Entität zum Ändern."
+                },
+                "phase": {
+                    "name": "Phase",
+                    "description": "Die zu verwendende Phase (L1, L2 oder L3)."
+                }
+            }
+        },
+        "enable_phase_switching": {
+            "name": "Phasenumschaltung aktivieren",
+            "description": "Aktiviert automatische Phasenumschaltung.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Phasenumschaltungs-Entität zum Ändern."
+                }
+            }
+        },
+        "disable_phase_switching": {
+            "name": "Phasenumschaltung deaktivieren",
+            "description": "Deaktiviert automatische Phasenumschaltung.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Phasenumschaltungs-Entität zum Ändern."
+                }
+            }
+        },
+        "set_green_share": {
+            "name": "Grünstromanteil setzen",
+            "description": "Setzt den Solar-Grünstromanteil in Prozent.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Grünstromanteil-Entität zum Ändern."
+                },
+                "value": {
+                    "name": "Wert",
+                    "description": "Der Grünstromanteil in Prozent (0-100%)."
+                }
+            }
+        },
+        "set_comfort_power": {
+            "name": "Komfortleistung setzen",
+            "description": "Setzt das Solar-Komfortleistungsniveau.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Die Komfortleistungs-Entität zum Ändern."
+                },
+                "value": {
+                    "name": "Wert",
+                    "description": "Die Komfortleistung in Watt (1400-5000W)."
+                }
+            }
+        },
+        "get_transactions": {
+            "name": "Transaktionen abrufen",
+            "description": "Ruft die Ladetransaktionshistorie ab.",
+            "fields": {
+                "start": {
+                    "name": "Startdatum",
+                    "description": "Startdatum für Transaktionsfilter."
+                },
+                "end": {
+                    "name": "Enddatum",
+                    "description": "Enddatum für Transaktionsfilter."
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "status_socket_1": {
+                "name": "Status Anschluss 1"
+            },
+            "status_socket_2": {
+                "name": "Status Anschluss 2"
+            },
+            "uptime": {
+                "name": "Betriebszeit"
+            },
+            "uptime_seconds": {
+                "name": "Betriebszeit Sekunden"
+            },
+            "uptime_hours": {
+                "name": "Betriebszeit Stunden"
+            },
+            "bootups": {
+                "name": "Anzahl Neustarts"
+            },
+            "temperature": {
+                "name": "Temperatur"
+            },
+            "max_temperature": {
+                "name": "Maximale Temperatur"
+            },
+            "min_temperature": {
+                "name": "Minimale Temperatur"
+            },
+            "voltage_l1_socket_1": {
+                "name": "Spannung L1 Anschluss 1"
+            },
+            "voltage_l2_socket_1": {
+                "name": "Spannung L2 Anschluss 1"
+            },
+            "voltage_l3_socket_1": {
+                "name": "Spannung L3 Anschluss 1"
+            },
+            "current_l1_socket_1": {
+                "name": "Strom L1 Anschluss 1"
+            },
+            "current_l2_socket_1": {
+                "name": "Strom L2 Anschluss 1"
+            },
+            "current_l3_socket_1": {
+                "name": "Strom L3 Anschluss 1"
+            },
+            "current_total_socket_1": {
+                "name": "Strom gesamt Anschluss 1"
+            },
+            "active_power_total_socket_1": {
+                "name": "Wirkleistung Anschluss 1"
+            },
+            "meter_reading_socket_1": {
+                "name": "Zählerstand Anschluss 1"
+            },
+            "frequency_socket_1": {
+                "name": "Frequenz Anschluss 1"
+            },
+            "charging_box_identifier": {
+                "name": "Ladebox-Kennung"
+            },
+            "boot_reason": {
+                "name": "Startgrund"
+            },
+            "system_date_time": {
+                "name": "Systemdatum/-zeit"
+            },
+            "last_modify_datetime": {
+                "name": "Letzte Konfigurationsänderung"
+            }
+        },
+        "binary_sensor": {
+            "system_date_light_savings": {
+                "name": "Sommerzeit"
+            },
+            "license_scn": {
+                "name": "Lizenz: Smart Charging Network"
+            },
+            "license_active_loadbalancing": {
+                "name": "Lizenz: Aktives Lastmanagement"
+            },
+            "license_static_loadbalancing": {
+                "name": "Lizenz: Statisches Lastmanagement"
+            },
+            "license_high_power_sockets": {
+                "name": "Lizenz: 32A Ausgang"
+            },
+            "license_rfid_reader": {
+                "name": "Lizenz: RFID-Leser"
+            },
+            "license_personalized_display": {
+                "name": "Lizenz: Personalisiertes Display"
+            },
+            "license_mobile_3g_4g": {
+                "name": "Lizenz: Mobil 3G/4G"
+            },
+            "license_giro_e": {
+                "name": "Lizenz: Giro-e Zahlung"
+            },
+            "https_api_login_status": {
+                "name": "API-Anmeldestatus"
+            }
+        },
+        "number": {
+            "alb_safe_current": {
+                "name": "Lastmanagement Sicherheitsstrom"
+            },
+            "main_normal_max_current_socket_1": {
+                "name": "Max. Strom Anschluss 1"
+            },
+            "max_station_current": {
+                "name": "Max. Stationsstrom"
+            },
+            "lb_max_smart_meter_current": {
+                "name": "Max. Smartmeter-Strom"
+            },
+            "lb_solar_charging_green_share": {
+                "name": "Solar-Grünstromanteil"
+            },
+            "lb_solar_charging_comfort_level": {
+                "name": "Solar-Komfortniveau"
+            },
+            "dp_light_intensity": {
+                "name": "Display-Helligkeit"
+            },
+            "heartbeat_interval": {
+                "name": "Heartbeat-Intervall"
+            }
+        },
+        "select": {
+            "lb_solar_charging_mode": {
+                "name": "Solar-Lademodus"
+            },
+            "lb_phase_connection": {
+                "name": "Phasenverbindung"
+            },
+            "auth_mode": {
+                "name": "Autorisierungsmodus"
+            },
+            "load_balancing_protocol": {
+                "name": "Lastmanagement-Protokoll"
+            },
+            "display_language": {
+                "name": "Display-Sprache"
+            }
+        },
+        "switch": {
+            "lb_enable_phase_switching": {
+                "name": "Phasenumschaltung"
+            },
+            "dp_light_auto_dim": {
+                "name": "Display Auto-Dimmen"
+            },
+            "lb_solar_charging_boost": {
+                "name": "Solar-Ladeboost"
+            },
+            "active_load_balancing": {
+                "name": "Aktives Lastmanagement"
+            },
+            "auth_white_list": {
+                "name": "Whitelist aktiviert"
+            },
+            "proxy_enabled": {
+                "name": "Proxy aktiviert"
+            }
+        },
+        "button": {
+            "reboot_wallbox": {
+                "name": "Neustart"
+            },
+            "auth_logout": {
+                "name": "API-Abmeldung"
+            },
+            "auth_login": {
+                "name": "API-Anmeldung"
+            },
+            "wallbox_force_update": {
+                "name": "Aktualisierung erzwingen"
+            },
+            "clear_transaction": {
+                "name": "Transaktionen löschen"
+            }
+        },
+        "text": {
+            "auth_plug_and_charge_id": {
+                "name": "Plug & Charge ID"
+            },
+            "proxy_address_port": {
+                "name": "Proxy-Adresse"
+            },
+            "proxy_username": {
+                "name": "Proxy-Benutzername"
+            },
+            "proxy_password": {
+                "name": "Proxy-Passwort"
+            }
+        }
+    },
+    "issues": {
+        "connection_failed": {
+            "title": "Verbindung zur Wallbox fehlgeschlagen",
+            "description": "Verbindung zur Alfen Wallbox unter {host} nicht möglich. Bitte prüfen Sie, ob die Wallbox eingeschaltet und im Netzwerk erreichbar ist."
+        },
+        "authentication_failed": {
+            "title": "Authentifizierung fehlgeschlagen",
+            "description": "Authentifizierung mit der Alfen Wallbox nicht möglich. Bitte überprüfen Sie Ihren Benutzernamen und Ihr Passwort in den Integrationseinstellungen."
+        }
+    }
+}

@@ -25,8 +25,6 @@ PARAM_PASSWORD = "password"
 PARAM_COMMAND = "command"
 PARAM_DISPLAY_NAME = "displayname"
 
-DISPLAY_NAME_VALUE = "ha"
-
 CAT_COMM = "comm"
 CAT_DISPLAY = "display"
 CAT_GENERIC = "generic"
@@ -60,7 +58,8 @@ DEFAULT_REFRESH_CATEGORIES = (
     CAT_OCPP,
     CAT_STATES,
     CAT_TEMP,
-    CAT_LOGS,
+    # CAT_LOGS removed from defaults to reduce API load on wallbox
+    # Users can still enable logs via options if needed
 )
 
 CATEGORIES = (
@@ -91,8 +90,13 @@ CATEGORIES = (
 # CONF_COMM = "comm"
 # CONF_TRANSACTION_DATA = "display"
 
-DEFAULT_SCAN_INTERVAL = 5
-DEFAULT_TIMEOUT = 20
+DEFAULT_SCAN_INTERVAL = 20
+DEFAULT_TIMEOUT = 30
+DEFAULT_CATEGORIES_PER_CYCLE = 15
+DEFAULT_CATEGORY_FETCH_DELAY = 0.0
+
+CONF_CATEGORIES_PER_CYCLE = "categories_per_cycle"
+CONF_CATEGORY_FETCH_DELAY = "category_fetch_delay"
 
 SERVICE_REBOOT_WALLBOX = "reboot_wallbox"
 SERVICE_SET_CURRENT_LIMIT = "set_current_limit"

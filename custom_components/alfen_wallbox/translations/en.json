@@ -1,32 +1,386 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "title": "Configure Alfen Wallbox",
-        "description": "Enter IP address and credentials of your Alfen Wallbox.",
-        "data": {
-          "host": "Host",
-          "name": "Friendly name",
-          "username": "User name",
-          "password": "Password"
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configure Alfen Wallbox",
+                "description": "Enter IP address and credentials of your Alfen Wallbox.",
+                "data": {
+                    "host": "Host",
+                    "name": "Friendly name",
+                    "username": "Username",
+                    "password": "Password"
+                }
+            },
+            "reconfigure": {
+                "title": "Reconfigure Alfen Wallbox",
+                "description": "Update connection settings for your Alfen Wallbox.",
+                "data": {
+                    "host": "Host",
+                    "username": "Username",
+                    "password": "Password"
+                }
+            }
+        },
+        "abort": {
+            "device_timeout": "Timeout connecting to the device.",
+            "device_fail": "Unexpected error creating device.",
+            "already_configured": "Device is already configured",
+            "reconfigure_successful": "Reconfiguration successful"
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to the wallbox",
+            "invalid_auth": "Invalid authentication credentials"
         }
-      }
     },
-    "abort": {
-      "device_timeout": "Timeout connecting to the device.",
-      "device_fail": "Unexpected error creating device.",
-      "already_configured": "Device is already configured"
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "data": {
-          "scan_interval": "Vernieuw interval",
-          "timeout": "Timeout",
-          "refresh_categories": "Select the categories to update periodically"
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "scan_interval": "Scan interval (seconds)",
+                    "timeout": "Timeout (seconds)",
+                    "categories_per_cycle": "Categories per cycle",
+                    "category_fetch_delay": "Category fetch delay (seconds)",
+                    "refresh_categories": "Categories to refresh"
+                },
+                "data_description": {
+                    "scan_interval": "How often to update data from the wallbox (1-300 seconds)",
+                    "timeout": "Request timeout for API calls (1-30 seconds)",
+                    "categories_per_cycle": "Number of property categories to fetch per update cycle (1-15)",
+                    "category_fetch_delay": "Delay between category fetches to reduce wallbox load (0-5 seconds)",
+                    "refresh_categories": "Select the categories to update periodically (others load once at startup)"
+                }
+            }
         }
-      }
+    },
+    "services": {
+        "reboot_wallbox": {
+            "name": "Reboot wallbox",
+            "description": "Reboots the Alfen wallbox.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The wallbox entity to reboot."
+                }
+            }
+        },
+        "set_current_limit": {
+            "name": "Set current limit",
+            "description": "Sets the charging current limit.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The current limit entity to change."
+                },
+                "limit": {
+                    "name": "Limit",
+                    "description": "The new current limit in Amperes (1-32A)."
+                }
+            }
+        },
+        "enable_rfid_authorization_mode": {
+            "name": "Enable RFID authorization",
+            "description": "Enables RFID authorization mode.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The authorization mode entity to change."
+                }
+            }
+        },
+        "disable_rfid_authorization_mode": {
+            "name": "Disable RFID authorization",
+            "description": "Disables RFID authorization mode.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The authorization mode entity to change."
+                }
+            }
+        },
+        "set_current_phase": {
+            "name": "Set current phase",
+            "description": "Sets the active phase for charging.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The phase connection entity to change."
+                },
+                "phase": {
+                    "name": "Phase",
+                    "description": "The phase to use (L1, L2, or L3)."
+                }
+            }
+        },
+        "enable_phase_switching": {
+            "name": "Enable phase switching",
+            "description": "Enables automatic phase switching.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The phase switching entity to change."
+                }
+            }
+        },
+        "disable_phase_switching": {
+            "name": "Disable phase switching",
+            "description": "Disables automatic phase switching.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The phase switching entity to change."
+                }
+            }
+        },
+        "set_green_share": {
+            "name": "Set green share",
+            "description": "Sets the solar green share percentage.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The green share entity to change."
+                },
+                "value": {
+                    "name": "Value",
+                    "description": "The green share percentage (0-100%)."
+                }
+            }
+        },
+        "set_comfort_power": {
+            "name": "Set comfort power",
+            "description": "Sets the solar comfort power level.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The comfort power entity to change."
+                },
+                "value": {
+                    "name": "Value",
+                    "description": "The comfort power in Watts (1400-5000W)."
+                }
+            }
+        },
+        "get_transactions": {
+            "name": "Get transactions",
+            "description": "Retrieves charging transaction history.",
+            "fields": {
+                "start": {
+                    "name": "Start date",
+                    "description": "Start date for transaction filter."
+                },
+                "end": {
+                    "name": "End date",
+                    "description": "End date for transaction filter."
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "status_socket_1": {
+                "name": "Status socket 1"
+            },
+            "status_socket_2": {
+                "name": "Status socket 2"
+            },
+            "uptime": {
+                "name": "Uptime"
+            },
+            "uptime_seconds": {
+                "name": "Uptime seconds"
+            },
+            "uptime_hours": {
+                "name": "Uptime hours"
+            },
+            "bootups": {
+                "name": "Boot count"
+            },
+            "temperature": {
+                "name": "Temperature"
+            },
+            "max_temperature": {
+                "name": "Maximum temperature"
+            },
+            "min_temperature": {
+                "name": "Minimum temperature"
+            },
+            "voltage_l1_socket_1": {
+                "name": "Voltage L1 socket 1"
+            },
+            "voltage_l2_socket_1": {
+                "name": "Voltage L2 socket 1"
+            },
+            "voltage_l3_socket_1": {
+                "name": "Voltage L3 socket 1"
+            },
+            "current_l1_socket_1": {
+                "name": "Current L1 socket 1"
+            },
+            "current_l2_socket_1": {
+                "name": "Current L2 socket 1"
+            },
+            "current_l3_socket_1": {
+                "name": "Current L3 socket 1"
+            },
+            "current_total_socket_1": {
+                "name": "Current total socket 1"
+            },
+            "active_power_total_socket_1": {
+                "name": "Active power socket 1"
+            },
+            "meter_reading_socket_1": {
+                "name": "Meter reading socket 1"
+            },
+            "frequency_socket_1": {
+                "name": "Frequency socket 1"
+            },
+            "charging_box_identifier": {
+                "name": "Charging box identifier"
+            },
+            "boot_reason": {
+                "name": "Boot reason"
+            },
+            "system_date_time": {
+                "name": "System datetime"
+            },
+            "last_modify_datetime": {
+                "name": "Last config modified"
+            }
+        },
+        "binary_sensor": {
+            "system_date_light_savings": {
+                "name": "Daylight savings"
+            },
+            "license_scn": {
+                "name": "License: Smart Charging Network"
+            },
+            "license_active_loadbalancing": {
+                "name": "License: Active load balancing"
+            },
+            "license_static_loadbalancing": {
+                "name": "License: Static load balancing"
+            },
+            "license_high_power_sockets": {
+                "name": "License: 32A output"
+            },
+            "license_rfid_reader": {
+                "name": "License: RFID reader"
+            },
+            "license_personalized_display": {
+                "name": "License: Personalized display"
+            },
+            "license_mobile_3g_4g": {
+                "name": "License: Mobile 3G/4G"
+            },
+            "license_giro_e": {
+                "name": "License: Giro-e payment"
+            },
+            "https_api_login_status": {
+                "name": "API login status"
+            }
+        },
+        "number": {
+            "alb_safe_current": {
+                "name": "Load balancing safe current"
+            },
+            "main_normal_max_current_socket_1": {
+                "name": "Max current socket 1"
+            },
+            "max_station_current": {
+                "name": "Max station current"
+            },
+            "lb_max_smart_meter_current": {
+                "name": "Max smart meter current"
+            },
+            "lb_solar_charging_green_share": {
+                "name": "Solar green share"
+            },
+            "lb_solar_charging_comfort_level": {
+                "name": "Solar comfort level"
+            },
+            "dp_light_intensity": {
+                "name": "Display brightness"
+            },
+            "heartbeat_interval": {
+                "name": "Heartbeat interval"
+            }
+        },
+        "select": {
+            "lb_solar_charging_mode": {
+                "name": "Solar charging mode"
+            },
+            "lb_phase_connection": {
+                "name": "Phase connection"
+            },
+            "auth_mode": {
+                "name": "Authorization mode"
+            },
+            "load_balancing_protocol": {
+                "name": "Load balancing protocol"
+            },
+            "display_language": {
+                "name": "Display language"
+            }
+        },
+        "switch": {
+            "lb_enable_phase_switching": {
+                "name": "Phase switching"
+            },
+            "dp_light_auto_dim": {
+                "name": "Display auto dim"
+            },
+            "lb_solar_charging_boost": {
+                "name": "Solar charging boost"
+            },
+            "active_load_balancing": {
+                "name": "Active load balancing"
+            },
+            "auth_white_list": {
+                "name": "Whitelist enabled"
+            },
+            "proxy_enabled": {
+                "name": "Proxy enabled"
+            }
+        },
+        "button": {
+            "reboot_wallbox": {
+                "name": "Reboot"
+            },
+            "auth_logout": {
+                "name": "API logout"
+            },
+            "auth_login": {
+                "name": "API login"
+            },
+            "wallbox_force_update": {
+                "name": "Force update"
+            },
+            "clear_transaction": {
+                "name": "Clear transactions"
+            }
+        },
+        "text": {
+            "auth_plug_and_charge_id": {
+                "name": "Plug & charge ID"
+            },
+            "proxy_address_port": {
+                "name": "Proxy address"
+            },
+            "proxy_username": {
+                "name": "Proxy username"
+            },
+            "proxy_password": {
+                "name": "Proxy password"
+            }
+        }
+    },
+    "issues": {
+        "connection_failed": {
+            "title": "Connection to wallbox failed",
+            "description": "Unable to connect to the Alfen wallbox at {host}. Please check that the wallbox is powered on and accessible on the network."
+        },
+        "authentication_failed": {
+            "title": "Authentication failed",
+            "description": "Unable to authenticate with the Alfen wallbox. Please verify your username and password in the integration settings."
+        }
     }
-  }
 }

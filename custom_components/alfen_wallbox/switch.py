@@ -8,30 +8,24 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import (
-    CAT,
-    ID,
-    SERVICE_DISABLE_PHASE_SWITCHING,
-    SERVICE_ENABLE_PHASE_SWITCHING,
-    VALUE,
-)
+from .const import CAT, SERVICE_DISABLE_PHASE_SWITCHING, SERVICE_ENABLE_PHASE_SWITCHING, VALUE
 from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenSwitchDescriptionMixin:
     """Define an entity description mixin for binary sensor entities."""
 
     api_param: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenSwitchDescription(SwitchEntityDescription, AlfenSwitchDescriptionMixin):
     """Class to describe an Alfen binary sensor entity."""
 
 
-ALFEN_BINARY_SENSOR_TYPES: Final[tuple[AlfenSwitchDescription, ...]] = (
+ALFEN_SWITCH_TYPES: Final[tuple[AlfenSwitchDescription, ...]] = (
     AlfenSwitchDescription(
         key="lb_enable_phase_switching",
         name="Load Balancing Enable Phase Switching",
@@ -94,24 +88,24 @@ async def async_setup_entry(
 
     switches = [
         AlfenSwitchSensor(entry, description)
-        for description in ALFEN_BINARY_SENSOR_TYPES
+        for description in ALFEN_SWITCH_TYPES
     ]
 
     async_add_entities(switches)
 
     platform = entity_platform.current_platform.get()
+    if platform is not None:
+        platform.async_register_entity_service(
+            SERVICE_ENABLE_PHASE_SWITCHING,
+            {},
+            "async_enable_phase_switching",
+        )
 
-    platform.async_register_entity_service(
-        SERVICE_ENABLE_PHASE_SWITCHING,
-        {},
-        "async_enable_phase_switching",
-    )
-
-    platform.async_register_entity_service(
-        SERVICE_DISABLE_PHASE_SWITCHING,
-        {},
-        "async_disable_phase_switching",
-    )
+        platform.async_register_entity_service(
+            SERVICE_DISABLE_PHASE_SWITCHING,
+            {},
+            "async_disable_phase_switching",
+        )
 
 
 class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
@@ -157,18 +151,14 @@ class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the light on."""
         # Do the turning on.
-        if self.entity_description.api_param == "2064_0":
-            on_value = 3
-        else:
-            on_value = 1
-
-        self.coordinator.device.set_value(self.entity_description.api_param, on_value)
-        await self.coordinator.device.async_update()
+        on_value = 3 if self.entity_description.api_param == "2064_0" else 1
+        await self.coordinator.device.set_value(self.entity_description.api_param, on_value)
+        # set_value() triggers immediate coordinator refresh via callback - no need to call async_update()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the entity off."""
-        self.coordinator.device.set_value(self.entity_description.api_param, 0)
-        await self.coordinator.device.async_update()
+        await self.coordinator.device.set_value(self.entity_description.api_param, 0)
+        # set_value() triggers immediate coordinator refresh via callback - no need to call async_update()
 
     async def async_enable_phase_switching(self):
         """Enable phase switching."""

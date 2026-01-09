@@ -40,7 +40,11 @@ async def async_migrate_entry(
     hass: HomeAssistant, config_entry: AlfenConfigEntry
 ) -> bool:
     """Migrate old entry."""
-    _LOGGER.debug("Migrating from version %s", config_entry.version)
+    name = config_entry.data.get(CONF_NAME, "Unknown")
+    host = config_entry.data.get(CONF_HOST, "Unknown")
+    log_id = f"{name}@{host}"
+
+    _LOGGER.debug("[%s] Migrating from version %s", log_id, config_entry.version)
 
     if config_entry.version == 1:
         scan_interval = config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
@@ -63,7 +67,7 @@ async def async_migrate_entry(
             options=options,
         )
 
-        _LOGGER.debug("Migration to version %s successful", config_entry.version)
+        _LOGGER.debug("[%s] Migration to version %s successful", log_id, config_entry.version)
 
     return True
 
@@ -92,10 +96,15 @@ async def async_unload_entry(
     hass: HomeAssistant, config_entry: AlfenConfigEntry
 ) -> bool:
     """Unload a config entry."""
-    _LOGGER.debug("async_unload_entry: %s", config_entry)
-
     coordinator = config_entry.runtime_data
+    _LOGGER.debug("[%s] async_unload_entry", coordinator.device.log_id)
+
     await coordinator.device.logout()
+
+    # Close the dedicated ClientSession
+    if coordinator._session and not coordinator._session.closed:
+        await coordinator._session.close()
+
     return await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)
 
 
@@ -105,5 +114,27 @@ def async_migrate_entity_entry(
 ) -> dict[str, Any] | None:
     """Migrate a Alfen entity entry."""
 
-    # No migration needed
+    # Migrate uptime_hours sensor to add device_class: duration (2025-11-03)
+    if (
+        entity_entry.domain == "sensor"
+        and entity_entry.unique_id.endswith("_uptime_hours")
+        and entity_entry.device_class != "duration"
+    ):
+        _LOGGER.debug(
+            "Migrating %s to add device_class=duration", entity_entry.entity_id
+        )
+        return {"device_class": "duration"}
+
+    # Remove device_class from uptime sensor (it returns a string, not numeric) (2025-11-03)
+    if (
+        entity_entry.domain == "sensor"
+        and entity_entry.unique_id.endswith("_uptime")
+        and not entity_entry.unique_id.endswith("_uptime_hours")  # Don't match uptime_hours
+        and entity_entry.device_class == "duration"
+    ):
+        _LOGGER.debug(
+            "Migrating %s to remove device_class (returns string not numeric)", entity_entry.entity_id
+        )
+        return {"device_class": None}
+
     return None

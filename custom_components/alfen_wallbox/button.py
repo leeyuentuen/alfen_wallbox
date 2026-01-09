@@ -21,16 +21,16 @@ from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenButtonDescriptionMixin:
     """Define an entity description mixin for button entities."""
 
     method: str
     url_action: str
-    json_data: str
+    json_data: dict[str, str] | None
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenButtonDescription(ButtonEntityDescription, AlfenButtonDescriptionMixin):
     """Class to describe an Alfen button entity."""
 

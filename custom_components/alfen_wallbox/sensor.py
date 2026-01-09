@@ -23,7 +23,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_platform
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
@@ -32,16 +31,16 @@ from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenSensorDescriptionMixin:
     """Define an entity description mixin for sensor entities."""
 
-    api_param: str
-    unit: str
+    api_param: str | None
+    unit: str | None
     round_digits: int | None
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenSensorDescription(SensorEntityDescription, AlfenSensorDescriptionMixin):
     """Class to describe an Alfen sensor entity."""
 
@@ -306,9 +305,19 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         name="Uptime",
         icon="mdi:timer-outline",
         api_param="2060_0",
-        unit=UnitOfTime.DAYS,
+        unit=None,
         round_digits=None,
+        # No device_class - returns formatted string like "1 day, 2:30:45"
+    ),
+    AlfenSensorDescription(
+        key="uptime_seconds",
+        name="Uptime Seconds",
+        icon="mdi:timer-outline",
+        api_param="2060_0",
+        unit=UnitOfTime.SECONDS,
+        round_digits=0,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.DURATION,
     ),
     AlfenSensorDescription(
         key="uptime_hours",
@@ -318,6 +327,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         unit=UnitOfTime.HOURS,
         round_digits=None,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.DURATION,
     ),
     AlfenSensorDescription(
         key="last_modify_datetime",
@@ -325,7 +335,6 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         icon="mdi:timer-outline",
         api_param="2187_0",
         unit=None,
-        state_class=SensorDeviceClass.DATE,
         round_digits=None,
     ),
     AlfenSensorDescription(
@@ -335,7 +344,6 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param="2059_0",
         unit=None,
         round_digits=None,
-        state_class=SensorStateClass.TOTAL_INCREASING,
     ),
     AlfenSensorDescription(
         key="bootups",
@@ -1620,12 +1628,12 @@ async def async_setup_entry(
         async_add_entities(sensors)
 
     platform = entity_platform.current_platform.get()
-
-    platform.async_register_entity_service(
-        SERVICE_REBOOT_WALLBOX,
-        {},
-        "async_reboot_wallbox",
-    )
+    if platform is not None:
+        platform.async_register_entity_service(
+            SERVICE_REBOOT_WALLBOX,
+            {},
+            "async_reboot_wallbox",
+        )
 
 
 class AlfenMainSensor(AlfenEntity):
@@ -1641,11 +1649,17 @@ class AlfenMainSensor(AlfenEntity):
 
         self._sensor = "sensor"
         self.entity_description = description
+        self._attr_name = f"{self.coordinator.device.name} {description.name}"
 
     @property
     def unique_id(self):
         """Return a unique ID."""
         return f"{self.coordinator.device.id}-{self._sensor}"
+
+    @property
+    def name(self) -> str | None:
+        """Return the name of the sensor."""
+        return self._attr_name
 
     @property
     def icon(self):
@@ -1711,6 +1725,8 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             self._attr_state_class = description.state_class
         if description.device_class is not None:
             self._attr_device_class = description.device_class
+        if description.unit is not None:
+            self._attr_native_unit_of_measurement = description.unit
 
         self._async_update_attrs()
 
@@ -1733,7 +1749,7 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         return f"{self.coordinator.device.id}-{self.entity_description.key}"
 
     @property
-    def name(self) -> str:
+    def name(self) -> str | None:
         """Return the name of the sensor."""
         return self._attr_name
 
@@ -1742,21 +1758,11 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         """Return the icon of the sensor."""
         return self.entity_description.icon
 
-    @property
-    def native_value(self) -> StateType:
-        """Return the state of the sensor."""
-        return round(self.state, 2)
-
-    @property
-    def native_unit_of_measurement(self) -> str | None:
-        """Return the unit the value is expressed in."""
-        return self.entity_description.unit
-
     def _processTransactionKWh(
         self, socket: str, entity_description: AlfenSensorDescription
     ):
         if self.coordinator.device.latest_tag is None:
-            return "Unknown"
+            return None
         ## calculate the usage
         startkWh = None
         mvkWh = None
@@ -1803,26 +1809,26 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             lastkWh is not None
             and stopkWh is not None
             and entity_description.key.endswith("_charged")
+            and float(stopkWh) >= float(lastkWh)
         ):
-            if float(stopkWh) >= float(lastkWh):
-                value = round(float(stopkWh) - float(lastkWh), 2)
-                if entity_description.round_digits is not None:
-                    return round(
-                        value,
-                        (
-                            entity_description.round_digits
-                            if entity_description.round_digits > 0
-                            else None
-                        ),
-                    )
-                return value
+            value = round(float(stopkWh) - float(lastkWh), 2)
+            if entity_description.round_digits is not None:
+                return round(
+                    value,
+                    (
+                        entity_description.round_digits
+                        if entity_description.round_digits > 0
+                        else None
+                    ),
+                )
+            return value
         return None
 
     def _processTransactionTime(
         self, socket: str, entity_description: AlfenSensorDescription
     ):
         if self.coordinator.device.latest_tag is None:
-            return "Unknown"
+            return None
 
         startDate = None
         mvDate = None
@@ -1972,7 +1978,7 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         return value
 
     @property
-    def state(self) -> StateType:  # noqa: C901
+    def native_value(self) -> StateType:
         """Return the state of the sensor."""
         # state of none Api param
         if self.entity_description.api_param is None:
@@ -1998,32 +2004,29 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 elif prop == "212F_3":
                     current_l3 = value
 
-            if self.entity_description.key == "smart_meter_l1":
-                if voltage_l1 is not None and current_l1 is not None:
-                    return round(float(voltage_l1) * float(current_l1), 2)
-            if self.entity_description.key == "smart_meter_l2":
-                if voltage_l2 is not None and current_l2 is not None:
-                    return round(float(voltage_l2) * float(current_l2), 2)
-            if self.entity_description.key == "smart_meter_l3":
-                if voltage_l3 is not None and current_l3 is not None:
-                    return round(float(voltage_l3) * float(current_l3), 2)
-            if self.entity_description.key == "smart_meter_total":
-                if (
-                    voltage_l1 is not None
-                    and current_l1 is not None
-                    and voltage_l2 is not None
-                    and current_l2 is not None
-                    and voltage_l3 is not None
-                    and current_l3 is not None
-                ):
-                    return round(
-                        (
-                            float(voltage_l1) * float(current_l1)
-                            + float(voltage_l2) * float(current_l2)
-                            + float(voltage_l3) * float(current_l3)
-                        ),
-                        2,
-                    )
+            if self.entity_description.key == "smart_meter_l1" and voltage_l1 is not None and current_l1 is not None:
+                return round(float(voltage_l1) * float(current_l1), 2)
+            if self.entity_description.key == "smart_meter_l2" and voltage_l2 is not None and current_l2 is not None:
+                return round(float(voltage_l2) * float(current_l2), 2)
+            if self.entity_description.key == "smart_meter_l3" and voltage_l3 is not None and current_l3 is not None:
+                return round(float(voltage_l3) * float(current_l3), 2)
+            if (
+                self.entity_description.key == "smart_meter_total"
+                and voltage_l1 is not None
+                and current_l1 is not None
+                and voltage_l2 is not None
+                and current_l2 is not None
+                and voltage_l3 is not None
+                and current_l3 is not None
+            ):
+                return round(
+                    (
+                        float(voltage_l1) * float(current_l1)
+                        + float(voltage_l2) * float(current_l2)
+                        + float(voltage_l3) * float(current_l3)
+                    ),
+                    2,
+                )
 
         # Custom code for transaction and tag
         for socketNr in [1, 2]:
@@ -2056,6 +2059,10 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                     ".", maxsplit=1
                 )[0]
 
+            # convert milliseconds to seconds (raw numeric value)
+            if self.entity_description.key == "uptime_seconds":
+                return round(prop[VALUE] / 1000)
+
             if self.entity_description.key == "uptime_hours":
                 result = 0
                 value = str(datetime.timedelta(milliseconds=prop[VALUE]))
@@ -2086,7 +2093,7 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 )
 
             # Allowed phase 1 or Allowed Phase 2
-            if (self.entity_description.api_param == "312E_0") | (
+            if (self.entity_description.api_param == "312E_0") or (
                 self.entity_description.api_param == "312F_0"
             ):
                 return ALLOWED_PHASE_DICT.get(prop[VALUE], "Unknown")
@@ -2141,16 +2148,6 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             }
         return None
 
-    @property
-    def unit_of_measurement(self) -> str:
-        """Return the unit of measurement."""
-        return self.entity_description.unit
-
     async def async_update(self):
         """Get the latest data and updates the states."""
         self._async_update_attrs()
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return a device description for device registry."""
-        return self.coordinator.device.device_info

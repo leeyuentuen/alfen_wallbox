@@ -4,8 +4,6 @@ from dataclasses import dataclass
 import logging
 from typing import Final
 
-import voluptuous as vol
-
 from homeassistant.components.number import (
     NumberDeviceClass,
     NumberEntity,
@@ -22,10 +20,10 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+import voluptuous as vol
 
 from .const import (
     CAT,
-    ID,
     LICENSE_HIGH_POWER,
     SERVICE_SET_COMFORT_POWER,
     SERVICE_SET_CURRENT_LIMIT,
@@ -43,9 +41,9 @@ class AlfenNumberDescriptionMixin:
     """Define an entity description mixin for select entities."""
 
     assumed_state: bool
-    state: float
+    state: float | None
     api_param: str
-    custom_mode: str
+    custom_mode: str | None
     round_digits: int | None
 
 
@@ -545,30 +543,30 @@ async def async_setup_entry(
         async_add_entities(numbers)
 
     platform = entity_platform.current_platform.get()
+    if platform is not None:
+        platform.async_register_entity_service(
+            SERVICE_SET_CURRENT_LIMIT,
+            {
+                vol.Required("limit"): cv.positive_int,
+            },
+            "async_set_current_limit",
+        )
 
-    platform.async_register_entity_service(
-        SERVICE_SET_CURRENT_LIMIT,
-        {
-            vol.Required("limit"): cv.positive_int,
-        },
-        "async_set_current_limit",
-    )
+        platform.async_register_entity_service(
+            SERVICE_SET_GREEN_SHARE,
+            {
+                vol.Required(VALUE): cv.positive_int,
+            },
+            "async_set_green_share",
+        )
 
-    platform.async_register_entity_service(
-        SERVICE_SET_GREEN_SHARE,
-        {
-            vol.Required(VALUE): cv.positive_int,
-        },
-        "async_set_green_share",
-    )
-
-    platform.async_register_entity_service(
-        SERVICE_SET_COMFORT_POWER,
-        {
-            vol.Required(VALUE): cv.positive_int,
-        },
-        "async_set_comfort_power",
-    )
+        platform.async_register_entity_service(
+            SERVICE_SET_COMFORT_POWER,
+            {
+                vol.Required(VALUE): cv.positive_int,
+            },
+            "async_set_comfort_power",
+        )
 
 
 class AlfenNumber(AlfenEntity, NumberEntity):
@@ -613,10 +611,9 @@ class AlfenNumber(AlfenEntity, NumberEntity):
         # override the amps and set them on 32A if there is a license for it
         override_amps_api_key = ["2068_0", "2129_0", "2062_0", "3129_0", "212A_0"]
         # check if device licenses has the high power socket license
-        if LICENSE_HIGH_POWER in self.coordinator.device.get_licenses():
-            if description.api_param in override_amps_api_key:
-                self._attr_max_value = 40
-                self._attr_native_max_value = 40
+        if LICENSE_HIGH_POWER in self.coordinator.device.get_licenses() and description.api_param in override_amps_api_key:
+            self._attr_max_value = 40
+            self._attr_native_max_value = 40
 
     @property
     def native_value(self) -> float | None:
@@ -626,12 +623,12 @@ class AlfenNumber(AlfenEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
         if self.entity_description.round_digits is not None:
-            self.coordinator.device.set_value(
+            await self.coordinator.device.set_value(
                 self.entity_description.api_param,
                 round(float(value), self.entity_description.round_digits),
             )
         else:
-            self.coordinator.device.set_value(
+            await self.coordinator.device.set_value(
                 self.entity_description.api_param, int(value)
             )
         self._set_current_option()

@@ -1,0 +1,386 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Konfigurera Alfen Wallbox",
+                "description": "Ange IP-adress och inloggningsuppgifter för din Alfen Wallbox.",
+                "data": {
+                    "host": "Värd",
+                    "name": "Namn",
+                    "username": "Användarnamn",
+                    "password": "Lösenord"
+                }
+            },
+            "reconfigure": {
+                "title": "Omkonfigurera Alfen Wallbox",
+                "description": "Uppdatera anslutningsinställningar för din Alfen Wallbox.",
+                "data": {
+                    "host": "Värd",
+                    "username": "Användarnamn",
+                    "password": "Lösenord"
+                }
+            }
+        },
+        "abort": {
+            "device_timeout": "Tidsgräns vid anslutning till enheten.",
+            "device_fail": "Oväntat fel vid skapande av enhet.",
+            "already_configured": "Enheten är redan konfigurerad",
+            "reconfigure_successful": "Omkonfigurering lyckades"
+        },
+        "error": {
+            "cannot_connect": "Kunde inte ansluta till wallboxen",
+            "invalid_auth": "Ogiltiga autentiseringsuppgifter"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "scan_interval": "Uppdateringsintervall (sekunder)",
+                    "timeout": "Tidsgräns (sekunder)",
+                    "categories_per_cycle": "Kategorier per cykel",
+                    "category_fetch_delay": "Fördröjning mellan kategorier (sekunder)",
+                    "refresh_categories": "Kategorier att uppdatera"
+                },
+                "data_description": {
+                    "scan_interval": "Hur ofta data uppdateras från wallboxen (1-300 sekunder)",
+                    "timeout": "Tidsgräns för API-anrop (1-30 sekunder)",
+                    "categories_per_cycle": "Antal egenskapskategorier att hämta per uppdateringscykel (1-15)",
+                    "category_fetch_delay": "Fördröjning mellan kategorihämtningar för att minska wallboxens belastning (0-5 sekunder)",
+                    "refresh_categories": "Välj kategorier att uppdatera periodiskt (övriga laddas en gång vid start)"
+                }
+            }
+        }
+    },
+    "services": {
+        "reboot_wallbox": {
+            "name": "Starta om wallbox",
+            "description": "Startar om Alfen wallboxen.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Wallbox-entiteten att starta om."
+                }
+            }
+        },
+        "set_current_limit": {
+            "name": "Ställ in strömbegränsning",
+            "description": "Ställer in laddningens strömbegränsning.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Strömbegränsningsentiteten att ändra."
+                },
+                "limit": {
+                    "name": "Gräns",
+                    "description": "Den nya strömbegränsningen i Ampere (1-32A)."
+                }
+            }
+        },
+        "enable_rfid_authorization_mode": {
+            "name": "Aktivera RFID-auktorisering",
+            "description": "Aktiverar RFID-auktoriseringsläge.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Auktoriseringslägesentiteten att ändra."
+                }
+            }
+        },
+        "disable_rfid_authorization_mode": {
+            "name": "Inaktivera RFID-auktorisering",
+            "description": "Inaktiverar RFID-auktoriseringsläge.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Auktoriseringslägesentiteten att ändra."
+                }
+            }
+        },
+        "set_current_phase": {
+            "name": "Ställ in aktuell fas",
+            "description": "Ställer in aktiv fas för laddning.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Fasanslutningsentiteten att ändra."
+                },
+                "phase": {
+                    "name": "Fas",
+                    "description": "Fasen att använda (L1, L2 eller L3)."
+                }
+            }
+        },
+        "enable_phase_switching": {
+            "name": "Aktivera fasväxling",
+            "description": "Aktiverar automatisk fasväxling.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Fasväxlingsentiteten att ändra."
+                }
+            }
+        },
+        "disable_phase_switching": {
+            "name": "Inaktivera fasväxling",
+            "description": "Inaktiverar automatisk fasväxling.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Fasväxlingsentiteten att ändra."
+                }
+            }
+        },
+        "set_green_share": {
+            "name": "Ställ in grön andel",
+            "description": "Ställer in solenergins gröna andel i procent.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Grön andel-entiteten att ändra."
+                },
+                "value": {
+                    "name": "Värde",
+                    "description": "Den gröna andelen i procent (0-100%)."
+                }
+            }
+        },
+        "set_comfort_power": {
+            "name": "Ställ in komforteffekt",
+            "description": "Ställer in solenergins komforteffektnivå.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Komforteffektentiteten att ändra."
+                },
+                "value": {
+                    "name": "Värde",
+                    "description": "Komforteffekten i Watt (1400-5000W)."
+                }
+            }
+        },
+        "get_transactions": {
+            "name": "Hämta transaktioner",
+            "description": "Hämtar laddningstransaktionshistorik.",
+            "fields": {
+                "start": {
+                    "name": "Startdatum",
+                    "description": "Startdatum för transaktionsfilter."
+                },
+                "end": {
+                    "name": "Slutdatum",
+                    "description": "Slutdatum för transaktionsfilter."
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "status_socket_1": {
+                "name": "Status uttag 1"
+            },
+            "status_socket_2": {
+                "name": "Status uttag 2"
+            },
+            "uptime": {
+                "name": "Drifttid"
+            },
+            "uptime_seconds": {
+                "name": "Drifttid sekunder"
+            },
+            "uptime_hours": {
+                "name": "Drifttid timmar"
+            },
+            "bootups": {
+                "name": "Antal omstarter"
+            },
+            "temperature": {
+                "name": "Temperatur"
+            },
+            "max_temperature": {
+                "name": "Maximal temperatur"
+            },
+            "min_temperature": {
+                "name": "Minimal temperatur"
+            },
+            "voltage_l1_socket_1": {
+                "name": "Spänning L1 uttag 1"
+            },
+            "voltage_l2_socket_1": {
+                "name": "Spänning L2 uttag 1"
+            },
+            "voltage_l3_socket_1": {
+                "name": "Spänning L3 uttag 1"
+            },
+            "current_l1_socket_1": {
+                "name": "Ström L1 uttag 1"
+            },
+            "current_l2_socket_1": {
+                "name": "Ström L2 uttag 1"
+            },
+            "current_l3_socket_1": {
+                "name": "Ström L3 uttag 1"
+            },
+            "current_total_socket_1": {
+                "name": "Ström totalt uttag 1"
+            },
+            "active_power_total_socket_1": {
+                "name": "Aktiv effekt uttag 1"
+            },
+            "meter_reading_socket_1": {
+                "name": "Mätarställning uttag 1"
+            },
+            "frequency_socket_1": {
+                "name": "Frekvens uttag 1"
+            },
+            "charging_box_identifier": {
+                "name": "Laddboxidentifierare"
+            },
+            "boot_reason": {
+                "name": "Startorsak"
+            },
+            "system_date_time": {
+                "name": "Systemdatum/tid"
+            },
+            "last_modify_datetime": {
+                "name": "Senaste konfigändring"
+            }
+        },
+        "binary_sensor": {
+            "system_date_light_savings": {
+                "name": "Sommartid"
+            },
+            "license_scn": {
+                "name": "Licens: Smart Charging Network"
+            },
+            "license_active_loadbalancing": {
+                "name": "Licens: Aktiv lastbalansering"
+            },
+            "license_static_loadbalancing": {
+                "name": "Licens: Statisk lastbalansering"
+            },
+            "license_high_power_sockets": {
+                "name": "Licens: 32A utgång"
+            },
+            "license_rfid_reader": {
+                "name": "Licens: RFID-läsare"
+            },
+            "license_personalized_display": {
+                "name": "Licens: Personlig display"
+            },
+            "license_mobile_3g_4g": {
+                "name": "Licens: Mobil 3G/4G"
+            },
+            "license_giro_e": {
+                "name": "Licens: Giro-e betalning"
+            },
+            "https_api_login_status": {
+                "name": "API-inloggningsstatus"
+            }
+        },
+        "number": {
+            "alb_safe_current": {
+                "name": "Lastbalansering säker ström"
+            },
+            "main_normal_max_current_socket_1": {
+                "name": "Max ström uttag 1"
+            },
+            "max_station_current": {
+                "name": "Max stationsström"
+            },
+            "lb_max_smart_meter_current": {
+                "name": "Max smart mätare ström"
+            },
+            "lb_solar_charging_green_share": {
+                "name": "Sol grön andel"
+            },
+            "lb_solar_charging_comfort_level": {
+                "name": "Sol komfortnivå"
+            },
+            "dp_light_intensity": {
+                "name": "Displayljusstyrka"
+            },
+            "heartbeat_interval": {
+                "name": "Heartbeat-intervall"
+            }
+        },
+        "select": {
+            "lb_solar_charging_mode": {
+                "name": "Solladdningsläge"
+            },
+            "lb_phase_connection": {
+                "name": "Fasanslutning"
+            },
+            "auth_mode": {
+                "name": "Auktoriseringsläge"
+            },
+            "load_balancing_protocol": {
+                "name": "Lastbalanseringsprotokoll"
+            },
+            "display_language": {
+                "name": "Displayspråk"
+            }
+        },
+        "switch": {
+            "lb_enable_phase_switching": {
+                "name": "Fasväxling"
+            },
+            "dp_light_auto_dim": {
+                "name": "Display auto-dim"
+            },
+            "lb_solar_charging_boost": {
+                "name": "Solladdning boost"
+            },
+            "active_load_balancing": {
+                "name": "Aktiv lastbalansering"
+            },
+            "auth_white_list": {
+                "name": "Vitlista aktiverad"
+            },
+            "proxy_enabled": {
+                "name": "Proxy aktiverad"
+            }
+        },
+        "button": {
+            "reboot_wallbox": {
+                "name": "Starta om"
+            },
+            "auth_logout": {
+                "name": "API-utloggning"
+            },
+            "auth_login": {
+                "name": "API-inloggning"
+            },
+            "wallbox_force_update": {
+                "name": "Tvinga uppdatering"
+            },
+            "clear_transaction": {
+                "name": "Rensa transaktioner"
+            }
+        },
+        "text": {
+            "auth_plug_and_charge_id": {
+                "name": "Plug & Charge-ID"
+            },
+            "proxy_address_port": {
+                "name": "Proxyadress"
+            },
+            "proxy_username": {
+                "name": "Proxyanvändarnamn"
+            },
+            "proxy_password": {
+                "name": "Proxylösenord"
+            }
+        }
+    },
+    "issues": {
+        "connection_failed": {
+            "title": "Anslutning till wallbox misslyckades",
+            "description": "Kan inte ansluta till Alfen wallboxen på {host}. Kontrollera att wallboxen är påslagen och tillgänglig i nätverket."
+        },
+        "authentication_failed": {
+            "title": "Autentisering misslyckades",
+            "description": "Kan inte autentisera med Alfen wallboxen. Kontrollera ditt användarnamn och lösenord i integrationsinställningarna."
+        }
+    }
+}

@@ -1,13 +1,13 @@
 {
     "domain": "alfen_wallbox",
     "name": "Alfen Wallbox",
-    "codeowners": ["leeyuentuen"],
+    "codeowners": ["@leeyuentuen"],
+    "config_flow": true,
     "dependencies": [],
     "documentation": "https://github.com/leeyuentuen/alfen_wallbox",
     "integration_type": "hub",
     "iot_class": "local_polling",
     "issue_tracker": "https://github.com/leeyuentuen/alfen_wallbox/issues",
     "requirements": [],
-    "config_flow": true,
-    "version": "2.9.7"
+    "version": "2.10.0"
 }

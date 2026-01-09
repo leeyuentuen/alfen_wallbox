@@ -1,0 +1,386 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configurar Alfen Wallbox",
+                "description": "Introduce la dirección IP y las credenciales de tu Alfen Wallbox.",
+                "data": {
+                    "host": "Host",
+                    "name": "Nombre",
+                    "username": "Usuario",
+                    "password": "Contraseña"
+                }
+            },
+            "reconfigure": {
+                "title": "Reconfigurar Alfen Wallbox",
+                "description": "Actualiza la configuración de conexión de tu Alfen Wallbox.",
+                "data": {
+                    "host": "Host",
+                    "username": "Usuario",
+                    "password": "Contraseña"
+                }
+            }
+        },
+        "abort": {
+            "device_timeout": "Tiempo de espera agotado al conectar con el dispositivo.",
+            "device_fail": "Error inesperado al crear el dispositivo.",
+            "already_configured": "El dispositivo ya está configurado",
+            "reconfigure_successful": "Reconfiguración exitosa"
+        },
+        "error": {
+            "cannot_connect": "Error al conectar con el wallbox",
+            "invalid_auth": "Credenciales de autenticación inválidas"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "scan_interval": "Intervalo de actualización (segundos)",
+                    "timeout": "Tiempo de espera (segundos)",
+                    "categories_per_cycle": "Categorías por ciclo",
+                    "category_fetch_delay": "Retardo entre categorías (segundos)",
+                    "refresh_categories": "Categorías a actualizar"
+                },
+                "data_description": {
+                    "scan_interval": "Frecuencia de actualización de datos del wallbox (1-300 segundos)",
+                    "timeout": "Tiempo de espera para llamadas API (1-30 segundos)",
+                    "categories_per_cycle": "Número de categorías de propiedades a obtener por ciclo de actualización (1-15)",
+                    "category_fetch_delay": "Retardo entre obtención de categorías para reducir la carga del wallbox (0-5 segundos)",
+                    "refresh_categories": "Selecciona las categorías a actualizar periódicamente (las demás se cargan una vez al inicio)"
+                }
+            }
+        }
+    },
+    "services": {
+        "reboot_wallbox": {
+            "name": "Reiniciar wallbox",
+            "description": "Reinicia el wallbox Alfen.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad del wallbox a reiniciar."
+                }
+            }
+        },
+        "set_current_limit": {
+            "name": "Establecer límite de corriente",
+            "description": "Establece el límite de corriente de carga.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad de límite de corriente a modificar."
+                },
+                "limit": {
+                    "name": "Límite",
+                    "description": "El nuevo límite de corriente en Amperios (1-32A)."
+                }
+            }
+        },
+        "enable_rfid_authorization_mode": {
+            "name": "Activar autorización RFID",
+            "description": "Activa el modo de autorización RFID.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad de modo de autorización a modificar."
+                }
+            }
+        },
+        "disable_rfid_authorization_mode": {
+            "name": "Desactivar autorización RFID",
+            "description": "Desactiva el modo de autorización RFID.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad de modo de autorización a modificar."
+                }
+            }
+        },
+        "set_current_phase": {
+            "name": "Establecer fase actual",
+            "description": "Establece la fase activa para la carga.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad de conexión de fase a modificar."
+                },
+                "phase": {
+                    "name": "Fase",
+                    "description": "La fase a usar (L1, L2 o L3)."
+                }
+            }
+        },
+        "enable_phase_switching": {
+            "name": "Activar conmutación de fase",
+            "description": "Activa la conmutación automática de fase.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad de conmutación de fase a modificar."
+                }
+            }
+        },
+        "disable_phase_switching": {
+            "name": "Desactivar conmutación de fase",
+            "description": "Desactiva la conmutación automática de fase.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad de conmutación de fase a modificar."
+                }
+            }
+        },
+        "set_green_share": {
+            "name": "Establecer cuota verde",
+            "description": "Establece el porcentaje de cuota verde solar.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad de cuota verde a modificar."
+                },
+                "value": {
+                    "name": "Valor",
+                    "description": "El porcentaje de cuota verde (0-100%)."
+                }
+            }
+        },
+        "set_comfort_power": {
+            "name": "Establecer potencia de confort",
+            "description": "Establece el nivel de potencia de confort solar.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "La entidad de potencia de confort a modificar."
+                },
+                "value": {
+                    "name": "Valor",
+                    "description": "La potencia de confort en Vatios (1400-5000W)."
+                }
+            }
+        },
+        "get_transactions": {
+            "name": "Obtener transacciones",
+            "description": "Recupera el historial de transacciones de carga.",
+            "fields": {
+                "start": {
+                    "name": "Fecha de inicio",
+                    "description": "Fecha de inicio para el filtro de transacciones."
+                },
+                "end": {
+                    "name": "Fecha de fin",
+                    "description": "Fecha de fin para el filtro de transacciones."
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "status_socket_1": {
+                "name": "Estado enchufe 1"
+            },
+            "status_socket_2": {
+                "name": "Estado enchufe 2"
+            },
+            "uptime": {
+                "name": "Tiempo activo"
+            },
+            "uptime_seconds": {
+                "name": "Tiempo activo segundos"
+            },
+            "uptime_hours": {
+                "name": "Tiempo activo horas"
+            },
+            "bootups": {
+                "name": "Número de arranques"
+            },
+            "temperature": {
+                "name": "Temperatura"
+            },
+            "max_temperature": {
+                "name": "Temperatura máxima"
+            },
+            "min_temperature": {
+                "name": "Temperatura mínima"
+            },
+            "voltage_l1_socket_1": {
+                "name": "Tensión L1 enchufe 1"
+            },
+            "voltage_l2_socket_1": {
+                "name": "Tensión L2 enchufe 1"
+            },
+            "voltage_l3_socket_1": {
+                "name": "Tensión L3 enchufe 1"
+            },
+            "current_l1_socket_1": {
+                "name": "Corriente L1 enchufe 1"
+            },
+            "current_l2_socket_1": {
+                "name": "Corriente L2 enchufe 1"
+            },
+            "current_l3_socket_1": {
+                "name": "Corriente L3 enchufe 1"
+            },
+            "current_total_socket_1": {
+                "name": "Corriente total enchufe 1"
+            },
+            "active_power_total_socket_1": {
+                "name": "Potencia activa enchufe 1"
+            },
+            "meter_reading_socket_1": {
+                "name": "Lectura contador enchufe 1"
+            },
+            "frequency_socket_1": {
+                "name": "Frecuencia enchufe 1"
+            },
+            "charging_box_identifier": {
+                "name": "Identificador del cargador"
+            },
+            "boot_reason": {
+                "name": "Razón de arranque"
+            },
+            "system_date_time": {
+                "name": "Fecha/hora del sistema"
+            },
+            "last_modify_datetime": {
+                "name": "Última modificación config"
+            }
+        },
+        "binary_sensor": {
+            "system_date_light_savings": {
+                "name": "Horario de verano"
+            },
+            "license_scn": {
+                "name": "Licencia: Smart Charging Network"
+            },
+            "license_active_loadbalancing": {
+                "name": "Licencia: Equilibrado de carga activo"
+            },
+            "license_static_loadbalancing": {
+                "name": "Licencia: Equilibrado de carga estático"
+            },
+            "license_high_power_sockets": {
+                "name": "Licencia: Salida 32A"
+            },
+            "license_rfid_reader": {
+                "name": "Licencia: Lector RFID"
+            },
+            "license_personalized_display": {
+                "name": "Licencia: Pantalla personalizada"
+            },
+            "license_mobile_3g_4g": {
+                "name": "Licencia: Móvil 3G/4G"
+            },
+            "license_giro_e": {
+                "name": "Licencia: Pago Giro-e"
+            },
+            "https_api_login_status": {
+                "name": "Estado de conexión API"
+            }
+        },
+        "number": {
+            "alb_safe_current": {
+                "name": "Corriente segura equilibrado"
+            },
+            "main_normal_max_current_socket_1": {
+                "name": "Corriente máx enchufe 1"
+            },
+            "max_station_current": {
+                "name": "Corriente máx estación"
+            },
+            "lb_max_smart_meter_current": {
+                "name": "Corriente máx contador inteligente"
+            },
+            "lb_solar_charging_green_share": {
+                "name": "Cuota verde solar"
+            },
+            "lb_solar_charging_comfort_level": {
+                "name": "Nivel de confort solar"
+            },
+            "dp_light_intensity": {
+                "name": "Brillo de pantalla"
+            },
+            "heartbeat_interval": {
+                "name": "Intervalo heartbeat"
+            }
+        },
+        "select": {
+            "lb_solar_charging_mode": {
+                "name": "Modo de carga solar"
+            },
+            "lb_phase_connection": {
+                "name": "Conexión de fase"
+            },
+            "auth_mode": {
+                "name": "Modo de autorización"
+            },
+            "load_balancing_protocol": {
+                "name": "Protocolo de equilibrado"
+            },
+            "display_language": {
+                "name": "Idioma de pantalla"
+            }
+        },
+        "switch": {
+            "lb_enable_phase_switching": {
+                "name": "Conmutación de fase"
+            },
+            "dp_light_auto_dim": {
+                "name": "Atenuación auto pantalla"
+            },
+            "lb_solar_charging_boost": {
+                "name": "Impulso carga solar"
+            },
+            "active_load_balancing": {
+                "name": "Equilibrado de carga activo"
+            },
+            "auth_white_list": {
+                "name": "Lista blanca activada"
+            },
+            "proxy_enabled": {
+                "name": "Proxy activado"
+            }
+        },
+        "button": {
+            "reboot_wallbox": {
+                "name": "Reiniciar"
+            },
+            "auth_logout": {
+                "name": "Cerrar sesión API"
+            },
+            "auth_login": {
+                "name": "Iniciar sesión API"
+            },
+            "wallbox_force_update": {
+                "name": "Forzar actualización"
+            },
+            "clear_transaction": {
+                "name": "Borrar transacciones"
+            }
+        },
+        "text": {
+            "auth_plug_and_charge_id": {
+                "name": "ID Plug & Charge"
+            },
+            "proxy_address_port": {
+                "name": "Dirección proxy"
+            },
+            "proxy_username": {
+                "name": "Usuario proxy"
+            },
+            "proxy_password": {
+                "name": "Contraseña proxy"
+            }
+        }
+    },
+    "issues": {
+        "connection_failed": {
+            "title": "Error de conexión con el wallbox",
+            "description": "No se puede conectar con el wallbox Alfen en {host}. Por favor, comprueba que el wallbox está encendido y accesible en la red."
+        },
+        "authentication_failed": {
+            "title": "Error de autenticación",
+            "description": "No se puede autenticar con el wallbox Alfen. Por favor, verifica tu usuario y contraseña en la configuración de la integración."
+        }
+    }
+}

@@ -5,6 +5,53 @@ This is a custom component to allow control of Alfen Wallboxes in [HomeAssistant
 
 The component is a fork of the [Garo Wallbox custom integration](https://github.com/sockless-coding/garo_wallbox) and [egnerfl custom integration](https://github.com/egnerfl/alfen_wallbox)
 
+## Recent Improvements
+
+### Wallbox Crash Prevention (January 2026)
+
+**Configurable category fetching to prevent wallbox crashes:**
+- 🛡️ **Prevents watchdog resets** - Configurable settings to eliminate memory/CPU spikes that cause wallbox crashes
+- ⚡ **Configurable API load** - Adjust categories per cycle (1-15) and fetch delay (0-5s) if needed
+- 🔄 **Smart rotation** - When reduced, categories rotate across multiple cycles
+- ⚡ **Fast update cycles** - Default 20s interval with all categories fetched per cycle
+- ✨ **User commands unaffected** - Value updates and commands processed immediately
+- 📊 **Tunable settings** - Adjust via integration options if you experience instability
+
+**Benefits:** By default, all categories are fetched every cycle for maximum responsiveness. If you experience wallbox instability, you can reduce categories per cycle or add fetch delays via integration options.
+
+### Responsiveness Improvements (January 2026)
+
+**Better responsiveness and reduced API load:**
+- ⚡ **Forced refresh after value updates** - Changes now apply immediately instead of waiting for next cycle
+- ⚡ **Optimized default scan interval** - Default 20s for responsive updates (configurable 1-300s)
+- ⚡ **Smarter update scheduling** - Automatic immediate refresh when users change settings
+- 🔧 Users can configure different intervals via integration options if needed
+
+**Benefits:** User changes (like current limit adjustments) are now visible immediately. Lower API traffic means better stability and less interference with the wallbox's single-session limitation.
+
+### Performance Optimizations (January 2026)
+
+**Major performance and efficiency improvements:**
+- ⚡ Eliminated 60-second blocking on timeout - faster recovery from network issues
+- ⚡ Optimized property updates with dictionary comprehensions
+- ⚡ Improved log parsing using regex patterns (faster, less CPU)
+- ⚡ Limited log memory usage to prevent unbounded growth (deque with maxlen=500)
+- ⚡ Better error handling with timing metrics and detailed logging
+- ⚡ Reduced retry backoff from 5s to 2s for faster recovery
+
+**Benefits:** Lower memory usage, faster updates, better resilience, improved observability. See [CHANGELOG.md](CHANGELOG.md) for details.
+
+### Reliability Fixes (January 2026)
+
+**10 critical bug fixes for reliability:**
+- ✅ Fixed race conditions causing silent failures when setting values
+- ✅ Eliminated deadlocks from improper lock handling
+- ✅ Fixed bitwise OR bugs in validation logic (current limit, green share, comfort power)
+- ✅ Added automatic retry for failed updates
+- ✅ Improved error logging and visibility
+
+Previously, users experienced "silent failures" when changing settings (e.g., max current) - values wouldn't update and required manual retry. This has been resolved. See [LOCKING_FIXES.md](LOCKING_FIXES.md) for technical details.
+
 > After reverse engineering the API myself I found out that there is already a Python libary wrapping the Alfen API.
 > https://gitlab.com/LordGaav/alfen-eve/-/tree/develop/alfeneve
 > 
@@ -41,13 +88,23 @@ The wallbox can be configured using the Integrations settings menu:
 
 <img src="doc/screenshots/configure.png" alt="drawing" style="width:600px;"/>
 
-Categories can be configured to refresh at each specified update interval. Categories that are not selected will only load when the integration starts. The exception to this rule is the `transactions` category, which will load only if explicitly selected.
+### Configuration Options
+
+- **Scan Interval** (1-300s, default: 20s) - How often to update data from the wallbox
+- **Timeout** (1-30s, default: 30s) - Request timeout for API calls
+- **Categories per Cycle** (1-15, default: 15) - Number of property categories to fetch per update cycle
+- **Category Fetch Delay** (0-5s, default: 0s) - Delay between fetching categories to reduce wallbox load
+- **Refresh Categories** - Select which property categories to fetch regularly (others load once at startup)
+
+**Configurable Category Fetching:** By default, all categories are fetched every cycle for maximum responsiveness. If you experience wallbox instability (crashes, watchdog resets), you can reduce the categories per cycle and/or add a fetch delay via integration options. When categories per cycle is reduced below the total enabled categories, the integration rotates through them across multiple cycles.
+
+Categories that are not selected will only load when the integration starts. The exception to this rule is the `transactions` category, which will load only if explicitly selected.
 
 To locate a category, start by selecting all categories. Allow the integration to load, then find the desired entity. The category will be displayed in the entity's attributes.
 
 <img src="doc/screenshots/attribute category.png" alt="drawing" style="width:400px;"/>
 
-Reducing the number of selected categories will enhance the integration's update speed.
+**Note:** If you reduce the categories per cycle below the total enabled categories, reducing the number of selected categories will enhance update frequency (fewer categories means faster rotation). The scan interval, categories per cycle, and fetch delay can all be adjusted via integration options to find the best balance for your wallbox.
 
 ## Simultaneous Use of the App and Integration
 The Alfen charger allows only one active login session at a time. This means the Alfen MyEve or Eve Connect app cannot be used concurrently with the Home Assistant integration.
@@ -114,6 +171,66 @@ service: alfen_wallbox.reboot_wallbox
 data:
   entity_id: alfen_wallbox.garage
 ```
+
+## Development & Testing
+
+### Setup
+
+**Install dependencies:**
+```bash
+uv pip install -r requirements_test.txt
+```
+
+### Running Tests
+
+**Run all tests:**
+```bash
+pytest tests/
+```
+
+**Run with coverage:**
+```bash
+pytest tests/ --cov=custom_components.alfen_wallbox --cov-report=term-missing
+```
+
+**Run specific test file:**
+```bash
+pytest tests/test_config_flow.py -v
+```
+
+### Code Quality
+
+**Type checking with mypy:**
+```bash
+mypy custom_components/alfen_wallbox
+```
+
+**Linting with ruff:**
+```bash
+# Check for issues
+ruff check .
+
+# Auto-fix issues
+ruff check --fix .
+
+# Format code
+ruff format .
+```
+
+**Run all checks:**
+```bash
+# Full quality check
+pytest tests/ && mypy custom_components/alfen_wallbox && ruff check .
+```
+
+### Test Structure
+
+- `tests/test_config_flow.py` - Config flow and options flow tests
+- `tests/test_init.py` - Integration setup and teardown tests
+- `tests/test_coordinator.py` - Coordinator update cycle tests
+- `tests/test_alfen_device.py` - Device API communication tests
+
+All tests use mocked device communication to avoid requiring a physical wallbox.
 
 ## Screenshots
 <img src="doc/screenshots/wallbox-1.png"/>

@@ -3,16 +3,14 @@
 from dataclasses import dataclass
 from typing import Final
 
-import voluptuous as vol
-
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+import voluptuous as vol
 
 from .const import (
     CAT,
-    ID,
     SERVICE_DISABLE_RFID_AUTHORIZATION_MODE,
     SERVICE_ENABLE_RFID_AUTHORIZATION_MODE,
     SERVICE_SET_CURRENT_PHASE,
@@ -22,15 +20,15 @@ from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenSelectDescriptionMixin:
     """Define an entity description mixin for select entities."""
 
     api_param: str
-    options_dict: dict[str, int]
+    options_dict: dict[str, int] | dict[str, str]
 
 
-@dataclass
+@dataclass(frozen=True)
 class AlfenSelectDescription(SelectEntityDescription, AlfenSelectDescriptionMixin):
     """Class to describe an Alfen select entity."""
 
@@ -305,38 +303,38 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     if coordinator.device.get_number_of_sockets() == 2:
         numbers = [
-            AlfenSelect(coordinator.device, description)
+            AlfenSelect(entry, description)
             for description in ALFEN_SELECT_DUAL_SOCKET_TYPES
         ]
         async_add_entities(numbers)
 
     platform = entity_platform.current_platform.get()
+    if platform is not None:
+        platform.async_register_entity_service(
+            SERVICE_SET_CURRENT_PHASE,
+            {
+                vol.Required("phase"): str,
+            },
+            "async_set_current_phase",
+        )
 
-    platform.async_register_entity_service(
-        SERVICE_SET_CURRENT_PHASE,
-        {
-            vol.Required("phase"): str,
-        },
-        "async_set_current_phase",
-    )
+        platform.async_register_entity_service(
+            SERVICE_ENABLE_RFID_AUTHORIZATION_MODE,
+            {},
+            "async_enable_rfid_auth_mode",
+        )
 
-    platform.async_register_entity_service(
-        SERVICE_ENABLE_RFID_AUTHORIZATION_MODE,
-        {},
-        "async_enable_rfid_auth_mode",
-    )
-
-    platform.async_register_entity_service(
-        SERVICE_DISABLE_RFID_AUTHORIZATION_MODE,
-        {},
-        "async_disable_rfid_auth_mode",
-    )
+        platform.async_register_entity_service(
+            SERVICE_DISABLE_RFID_AUTHORIZATION_MODE,
+            {},
+            "async_disable_rfid_auth_mode",
+        )
 
 
 class AlfenSelect(AlfenEntity, SelectEntity):
     """Define Alfen select."""
 
-    values_dict: dict[int, str]
+    values_dict: dict[int | str, str]
     entity_description: AlfenSelectDescription
 
     def __init__(
@@ -347,16 +345,15 @@ class AlfenSelect(AlfenEntity, SelectEntity):
         self._attr_name = f"{self.coordinator.device.name} {description.name}"
 
         self._attr_unique_id = f"{self.coordinator.device.id}_{description.key}"
-        self._attr_options = description.options
+        self._attr_options = description.options if description.options is not None else []
         self.entity_description = description
         self.values_dict = {v: k for k, v in description.options_dict.items()}
         self._async_update_attrs()
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
-
-        value = {v: k for k, v in self.values_dict.items()}[option]
-        self.coordinator.device.set_value(
+        value = self.entity_description.options_dict[option]
+        await self.coordinator.device.set_value(
             self.entity_description.api_param, value
         )
         self.async_write_ha_state()
@@ -365,7 +362,7 @@ class AlfenSelect(AlfenEntity, SelectEntity):
     def current_option(self) -> str | None:
         """Return the current option."""
         value = self._get_current_option()
-        return self.values_dict.get(value)
+        return self.values_dict.get(value) if value is not None else None
 
     @property
     def extra_state_attributes(self):
@@ -404,11 +401,11 @@ class AlfenSelect(AlfenEntity, SelectEntity):
     async def async_enable_rfid_auth_mode(self):
         """Enable RFID authorization mode."""
         await self.coordinator.device.set_rfid_auth_mode(True)
-        self.coordinator.device.set_value(self.entity_description.api_param, 2)
+        await self.coordinator.device.set_value(self.entity_description.api_param, 2)
         self.async_write_ha_state()
 
     async def async_disable_rfid_auth_mode(self):
         """Disable RFID authorization mode."""
         await self.coordinator.device.set_rfid_auth_mode(False)
-        self.coordinator.device.set_value(self.entity_description.api_param, 0)
+        await self.coordinator.device.set_value(self.entity_description.api_param, 0)
         self.async_write_ha_state()

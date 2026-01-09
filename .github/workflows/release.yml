@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Create release archive
+        run: |
+          cd custom_components
+          zip -r alfen_wallbox.zip alfen_wallbox
+          mv alfen_wallbox.zip ..
+
+      - name: Upload release asset
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: alfen_wallbox.zip
+          asset_name: alfen_wallbox.zip
+          tag: ${{ github.ref }}
+          overwrite: true
