@@ -15,6 +15,7 @@ from homeassistant.const import (
     PERCENTAGE,
     UnitOfElectricCurrent,
     UnitOfPower,
+    UnitOfTemperature,
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
@@ -460,7 +461,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
     ),
     AlfenNumberDescription(
         key="timzone_offset",
-        name="timezone",
+        name="Timezone",
         state=None,
         icon="mdi:clock",
         assumed_state=False,
@@ -484,7 +485,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         native_max_value=100,
         native_step=1,
         custom_mode=None,
-        unit_of_measurement=None,
+        unit_of_measurement=UnitOfTemperature.CELSIUS,
         api_param="2203_0",
         round_digits=None,
     ),
@@ -499,7 +500,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         native_max_value=100,
         native_step=1,
         custom_mode=None,
-        unit_of_measurement=None,
+        unit_of_measurement=UnitOfTemperature.CELSIUS,
         api_param="2204_0",
         round_digits=None,
     ),
@@ -611,7 +612,10 @@ class AlfenNumber(AlfenEntity, NumberEntity):
         # override the amps and set them on 32A if there is a license for it
         override_amps_api_key = ["2068_0", "2129_0", "2062_0", "3129_0", "212A_0"]
         # check if device licenses has the high power socket license
-        if LICENSE_HIGH_POWER in self.coordinator.device.get_licenses() and description.api_param in override_amps_api_key:
+        if (
+            LICENSE_HIGH_POWER in self.coordinator.device.get_licenses()
+            and description.api_param in override_amps_api_key
+        ):
             self._attr_max_value = 40
             self._attr_native_max_value = 40
 

@@ -305,28 +305,8 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         name="Uptime",
         icon="mdi:timer-outline",
         api_param="2060_0",
-        unit=None,
-        round_digits=None,
-        # No device_class - returns formatted string like "1 day, 2:30:45"
-    ),
-    AlfenSensorDescription(
-        key="uptime_seconds",
-        name="Uptime Seconds",
-        icon="mdi:timer-outline",
-        api_param="2060_0",
-        unit=UnitOfTime.SECONDS,
+        unit=UnitOfTime.MILLISECONDS,
         round_digits=0,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.DURATION,
-    ),
-    AlfenSensorDescription(
-        key="uptime_hours",
-        name="Uptime Hours",
-        icon="mdi:timer-outline",
-        api_param="2060_0",
-        unit=UnitOfTime.HOURS,
-        round_digits=None,
-        state_class=SensorStateClass.TOTAL_INCREASING,
         device_class=SensorDeviceClass.DURATION,
     ),
     AlfenSensorDescription(
@@ -344,6 +324,8 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param="2059_0",
         unit=None,
         round_digits=None,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.TIMESTAMP,
     ),
     AlfenSensorDescription(
         key="bootups",
@@ -747,8 +729,9 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         name="Mobile Weak Signal Threshold",
         icon="mdi:information-outline",
         api_param="2111_0",
-        unit=None,
+        unit=SIGNAL_STRENGTH_DECIBELS,
         round_digits=0,
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
     ),
     # AlfenSensorDescription(
     #     key="comm_dhcp_address_2",
@@ -1161,6 +1144,8 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         icon="mdi:battery-charging",
         api_param=None,
         unit=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL,
+        device_class=SensorDeviceClass.ENERGY,
         round_digits=None,
     ),
     AlfenSensorDescription(
@@ -1170,6 +1155,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param=None,
         unit=UnitOfTime.MINUTES,
         round_digits=0,
+        device_class=SensorDeviceClass.DURATION,
     ),
     AlfenSensorDescription(
         key="custom_transaction_socket_1_charged",
@@ -1178,6 +1164,8 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param=None,
         unit=UnitOfEnergy.KILO_WATT_HOUR,
         round_digits=None,
+        state_class=SensorStateClass.TOTAL,
+        device_class=SensorDeviceClass.ENERGY,
     ),
     AlfenSensorDescription(
         key="custom_transaction_socket_1_charged_time",
@@ -1186,6 +1174,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param=None,
         unit=UnitOfTime.MINUTES,
         round_digits=0,
+        device_class=SensorDeviceClass.DURATION,
     ),
     AlfenSensorDescription(
         key="manufacturer_hardware_version",
@@ -1570,6 +1559,8 @@ ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         icon="mdi:battery-charging",
         api_param=None,
         unit=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL,
+        device_class=SensorDeviceClass.ENERGY,
         round_digits=None,
     ),
     AlfenSensorDescription(
@@ -1579,6 +1570,7 @@ ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param=None,
         unit=UnitOfTime.MINUTES,
         round_digits=0,
+        device_class=SensorDeviceClass.DURATION,
     ),
     AlfenSensorDescription(
         key="custom_transaction_socket_2_charged",
@@ -1587,6 +1579,8 @@ ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param=None,
         unit=UnitOfEnergy.KILO_WATT_HOUR,
         round_digits=None,
+        state_class=SensorStateClass.TOTAL,
+        device_class=SensorDeviceClass.ENERGY,
     ),
     AlfenSensorDescription(
         key="custom_transaction_socket_2_charged_time",
@@ -1595,6 +1589,7 @@ ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param=None,
         unit=UnitOfTime.MINUTES,
         round_digits=0,
+        device_class=SensorDeviceClass.DURATION,
     ),
 )
 
@@ -2004,11 +1999,23 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 elif prop == "212F_3":
                     current_l3 = value
 
-            if self.entity_description.key == "smart_meter_l1" and voltage_l1 is not None and current_l1 is not None:
+            if (
+                self.entity_description.key == "smart_meter_l1"
+                and voltage_l1 is not None
+                and current_l1 is not None
+            ):
                 return round(float(voltage_l1) * float(current_l1), 2)
-            if self.entity_description.key == "smart_meter_l2" and voltage_l2 is not None and current_l2 is not None:
+            if (
+                self.entity_description.key == "smart_meter_l2"
+                and voltage_l2 is not None
+                and current_l2 is not None
+            ):
                 return round(float(voltage_l2) * float(current_l2), 2)
-            if self.entity_description.key == "smart_meter_l3" and voltage_l3 is not None and current_l3 is not None:
+            if (
+                self.entity_description.key == "smart_meter_l3"
+                and voltage_l3 is not None
+                and current_l3 is not None
+            ):
                 return round(float(voltage_l3) * float(current_l3), 2)
             if (
                 self.entity_description.key == "smart_meter_total"
@@ -2053,27 +2060,13 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             if self.entity_description.api_param == "2511_3":
                 return round((prop[VALUE] / 100), self.entity_description.round_digits)
 
-            # change milliseconds to HH:MM:SS
-            if self.entity_description.key == "uptime":
-                return str(datetime.timedelta(milliseconds=prop[VALUE])).split(
-                    ".", maxsplit=1
-                )[0]
+            # if self.entity_description.key == "uptime":
+            #    return prop[VALUE]
 
-            # convert milliseconds to seconds (raw numeric value)
-            if self.entity_description.key == "uptime_seconds":
-                return round(prop[VALUE] / 1000)
-
-            if self.entity_description.key == "uptime_hours":
-                result = 0
-                value = str(datetime.timedelta(milliseconds=prop[VALUE]))
-                days = value.split(" day")
-                if len(days) > 1:
-                    result = int(days[0]) * 24
-                    hours = days[1].split(", ")[1].split(":", maxsplit=1)[0]
-                else:
-                    hours = value.split(":", maxsplit=1)[0]
-                result += int(hours)
-                return result
+            if self.entity_description.key == "system_date_time":
+                return datetime.datetime.fromtimestamp(
+                    prop[VALUE] / 1000, tz=datetime.timezone.utc
+                )
 
             # change milliseconds to d/m/y HH:MM:SS
             if self.entity_description.api_param in ("2187_0", "2059_0"):
@@ -2093,9 +2086,7 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 )
 
             # Allowed phase 1 or Allowed Phase 2
-            if (self.entity_description.api_param == "312E_0") or (
-                self.entity_description.api_param == "312F_0"
-            ):
+            if self.entity_description.api_param in ("312E_0", "312F_0"):
                 return ALLOWED_PHASE_DICT.get(prop[VALUE], "Unknown")
 
             if self.entity_description.round_digits is not None:
