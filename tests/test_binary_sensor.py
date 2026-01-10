@@ -1,6 +1,5 @@
 """Test the Alfen Wallbox binary sensor entities."""
 
-
 from homeassistant.const import EntityCategory
 
 from custom_components.alfen_wallbox.binary_sensor import ALFEN_BINARY_SENSOR_TYPES
@@ -12,8 +11,7 @@ class TestBinarySensorEntityCategories:
     def test_license_sensors_have_diagnostic_category(self):
         """Test that all license sensors have DIAGNOSTIC entity category."""
         license_sensors = [
-            desc for desc in ALFEN_BINARY_SENSOR_TYPES
-            if desc.key.startswith("license_")
+            desc for desc in ALFEN_BINARY_SENSOR_TYPES if desc.key.startswith("license_")
         ]
 
         assert len(license_sensors) > 0, "Should have license sensors"
@@ -26,7 +24,8 @@ class TestBinarySensorEntityCategories:
     def test_system_sensors_have_diagnostic_category(self):
         """Test that system sensors have DIAGNOSTIC entity category."""
         system_sensors = [
-            desc for desc in ALFEN_BINARY_SENSOR_TYPES
+            desc
+            for desc in ALFEN_BINARY_SENSOR_TYPES
             if desc.key in ["system_date_light_savings", "https_api_login_status"]
         ]
 
@@ -61,8 +60,7 @@ class TestBinarySensorDescriptions:
     def test_license_sensor_count(self):
         """Test expected number of license sensors."""
         license_sensors = [
-            desc for desc in ALFEN_BINARY_SENSOR_TYPES
-            if desc.key.startswith("license_")
+            desc for desc in ALFEN_BINARY_SENSOR_TYPES if desc.key.startswith("license_")
         ]
         # Should have: scn, active_loadbalancing, static_loadbalancing,
         # high_power_sockets, rfid_reader, personalized_display, mobile_3G_4G, giro_e
@@ -73,9 +71,8 @@ class TestBinarySensorDescriptions:
         from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 
         api_sensor = next(
-            (desc for desc in ALFEN_BINARY_SENSOR_TYPES
-             if desc.key == "https_api_login_status"),
-            None
+            (desc for desc in ALFEN_BINARY_SENSOR_TYPES if desc.key == "https_api_login_status"),
+            None,
         )
 
         assert api_sensor is not None

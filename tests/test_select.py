@@ -198,9 +198,7 @@ async def test_select_async_set_current_phase(
     mock_config_entry.runtime_data = coordinator
 
     # Find the phase connection select
-    phase_desc = next(
-        desc for desc in ALFEN_SELECT_TYPES if desc.key == "lb_phase_connection"
-    )
+    phase_desc = next(desc for desc in ALFEN_SELECT_TYPES if desc.key == "lb_phase_connection")
 
     select = AlfenSelect(mock_config_entry, phase_desc)
     select.async_write_ha_state = Mock()

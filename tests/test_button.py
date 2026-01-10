@@ -1,6 +1,5 @@
 """Test the Alfen Wallbox button entities."""
 
-
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -160,9 +159,7 @@ async def test_reboot_button_press(
     mock_config_entry.runtime_data = coordinator
 
     # Find the reboot button description
-    reboot_desc = next(
-        desc for desc in ALFEN_BUTTON_TYPES if desc.key == "reboot_wallbox"
-    )
+    reboot_desc = next(desc for desc in ALFEN_BUTTON_TYPES if desc.key == "reboot_wallbox")
 
     button = AlfenButton(mock_config_entry, reboot_desc)
 
@@ -191,9 +188,7 @@ async def test_clear_transaction_button_press(
     mock_config_entry.runtime_data = coordinator
 
     # Find the clear transaction button description
-    clear_desc = next(
-        desc for desc in ALFEN_BUTTON_TYPES if desc.key == "clear_transaction"
-    )
+    clear_desc = next(desc for desc in ALFEN_BUTTON_TYPES if desc.key == "clear_transaction")
 
     button = AlfenButton(mock_config_entry, clear_desc)
 

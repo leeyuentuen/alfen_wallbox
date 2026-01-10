@@ -1,6 +1,5 @@
 """Test the Alfen Wallbox repairs module."""
 
-
 from custom_components.alfen_wallbox.repairs import (
     AuthenticationFailedRepairFlow,
     ConnectionFailedRepairFlow,
@@ -99,9 +98,7 @@ class TestAsyncCreateFixFlow:
 
     async def test_creates_connection_failed_flow(self, hass):
         """Test creating connection failed repair flow."""
-        flow = await async_create_fix_flow(
-            hass, "connection_failed", {"host": "192.168.1.100"}
-        )
+        flow = await async_create_fix_flow(hass, "connection_failed", {"host": "192.168.1.100"})
 
         assert isinstance(flow, ConnectionFailedRepairFlow)
 

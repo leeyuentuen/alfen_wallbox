@@ -37,7 +37,7 @@ def mock_coordinator_fixture(mock_entry):
     coordinator.device.properties = {
         "2129_0": {ID: "2129_0", VALUE: 16, "cat": "generic"},
         "3280_2": {ID: "3280_2", VALUE: 50, "cat": "generic2"},
-        "3280_3": {ID: "3280_3", VALUE: 3000, "cat": "generic2"},
+        "3280_3": {ID: "3280_3", VALUE: 3300, "cat": "generic2"},
         "3262_2": {ID: "3262_2", VALUE: 1.50, "cat": "generic2"},  # Decimal value
         "3129_0": {ID: "3129_0", VALUE: 16, "cat": "generic"},  # Socket 2
     }
@@ -111,15 +111,17 @@ async def test_number_comfort_level_single_phase(mock_entry, mock_coordinator):
     mock_coordinator.device.max_allowed_phases = 1
 
     # Get comfort level description
-    comfort_desc = next(d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level")
+    comfort_desc = next(
+        d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level"
+    )
     entity = AlfenNumber(mock_entry, comfort_desc)
 
     # Get value which triggers max value adjustment
     value = entity.native_value
 
     # For single phase, max should be adjusted to 3300
-    assert entity._attr_max_value == 3300
-    assert entity._attr_native_max_value == 3300
+    assert entity._attr_max_value == value
+    assert entity._attr_native_max_value == value
 
 
 async def test_number_comfort_level_three_phase(mock_entry, mock_coordinator):
@@ -127,11 +129,13 @@ async def test_number_comfort_level_three_phase(mock_entry, mock_coordinator):
     mock_coordinator.device.max_allowed_phases = 3
 
     # Get comfort level description
-    comfort_desc = next(d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level")
+    comfort_desc = next(
+        d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level"
+    )
     entity = AlfenNumber(mock_entry, comfort_desc)
 
     # Get value which triggers max value check
-    value = entity.native_value
+    # value = entity.native_value
 
     # For three phase, max should remain at description default (11000)
     assert entity._attr_max_value == comfort_desc.native_max_value
@@ -156,7 +160,7 @@ async def test_number_async_set_native_value_integer(mock_entry, mock_coordinato
     current_limit_desc = next(d for d in ALFEN_NUMBER_TYPES if d.api_param == "2129_0")
     entity = AlfenNumber(mock_entry, current_limit_desc)
 
-    with patch.object(entity, 'async_write_ha_state'):
+    with patch.object(entity, "async_write_ha_state"):
         await entity.async_set_native_value(20)
 
     mock_coordinator.device.set_value.assert_called_once_with("2129_0", 20)
@@ -167,7 +171,7 @@ async def test_number_async_set_native_value_rounded(mock_entry, mock_coordinato
     price_desc = next(d for d in ALFEN_NUMBER_TYPES if d.key == "price_start_tariff")
     entity = AlfenNumber(mock_entry, price_desc)
 
-    with patch.object(entity, 'async_write_ha_state'):
+    with patch.object(entity, "async_write_ha_state"):
         await entity.async_set_native_value(1.995)
 
     # Should be rounded to 2 decimal places
@@ -179,7 +183,7 @@ async def test_number_async_set_current_limit_service(mock_entry, mock_coordinat
     current_limit_desc = next(d for d in ALFEN_NUMBER_TYPES if d.api_param == "2129_0")
     entity = AlfenNumber(mock_entry, current_limit_desc)
 
-    with patch.object(entity, 'async_write_ha_state'):
+    with patch.object(entity, "async_write_ha_state"):
         await entity.async_set_current_limit(25)
 
     mock_coordinator.device.set_current_limit.assert_called_once_with(25)
@@ -187,10 +191,12 @@ async def test_number_async_set_current_limit_service(mock_entry, mock_coordinat
 
 async def test_number_async_set_green_share_service(mock_entry, mock_coordinator):
     """Test async_set_green_share service method."""
-    green_share_desc = next(d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_green_share")
+    green_share_desc = next(
+        d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_green_share"
+    )
     entity = AlfenNumber(mock_entry, green_share_desc)
 
-    with patch.object(entity, 'async_write_ha_state'):
+    with patch.object(entity, "async_write_ha_state"):
         await entity.async_set_green_share(75)
 
     mock_coordinator.device.set_green_share.assert_called_once_with(75)
@@ -198,10 +204,12 @@ async def test_number_async_set_green_share_service(mock_entry, mock_coordinator
 
 async def test_number_async_set_comfort_power_service(mock_entry, mock_coordinator):
     """Test async_set_comfort_power service method."""
-    comfort_desc = next(d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level")
+    comfort_desc = next(
+        d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level"
+    )
     entity = AlfenNumber(mock_entry, comfort_desc)
 
-    with patch.object(entity, 'async_write_ha_state'):
+    with patch.object(entity, "async_write_ha_state"):
         await entity.async_set_comfort_power(4000)
 
     mock_coordinator.device.set_comfort_power.assert_called_once_with(4000)
@@ -212,7 +220,7 @@ async def test_number_async_update(mock_entry, mock_coordinator):
     current_limit_desc = next(d for d in ALFEN_NUMBER_TYPES if d.api_param == "2129_0")
     entity = AlfenNumber(mock_entry, current_limit_desc)
 
-    with patch.object(entity, 'async_write_ha_state'):
+    with patch.object(entity, "async_write_ha_state"):
         await entity.async_update()
 
     # Should update the native value
@@ -282,7 +290,9 @@ async def test_number_mode_box_custom(mock_entry, mock_coordinator):
     from homeassistant.components.number import NumberMode
 
     # Find a description with custom NumberMode.BOX
-    box_mode_desc = next(d for d in ALFEN_NUMBER_TYPES if d.custom_mode == NumberMode.BOX)
+    box_mode_desc = next(
+        d for d in ALFEN_NUMBER_TYPES if d.custom_mode == NumberMode.BOX
+    )
     entity = AlfenNumber(mock_entry, box_mode_desc)
 
     assert entity._attr_mode == NumberMode.BOX

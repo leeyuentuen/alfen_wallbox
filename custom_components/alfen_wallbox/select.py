@@ -303,8 +303,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     if coordinator.device.get_number_of_sockets() == 2:
         numbers = [
-            AlfenSelect(entry, description)
-            for description in ALFEN_SELECT_DUAL_SOCKET_TYPES
+            AlfenSelect(entry, description) for description in ALFEN_SELECT_DUAL_SOCKET_TYPES
         ]
         async_add_entities(numbers)
 
@@ -337,9 +336,7 @@ class AlfenSelect(AlfenEntity, SelectEntity):
     values_dict: dict[int | str, str]
     entity_description: AlfenSelectDescription
 
-    def __init__(
-        self, entry: AlfenConfigEntry, description: AlfenSelectDescription
-    ) -> None:
+    def __init__(self, entry: AlfenConfigEntry, description: AlfenSelectDescription) -> None:
         """Initialize."""
         super().__init__(entry)
         self._attr_name = f"{self.coordinator.device.name} {description.name}"
@@ -353,9 +350,7 @@ class AlfenSelect(AlfenEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
         value = self.entity_description.options_dict[option]
-        await self.coordinator.device.set_value(
-            self.entity_description.api_param, value
-        )
+        await self.coordinator.device.set_value(self.entity_description.api_param, value)
         self.async_write_ha_state()
 
     @property
@@ -369,9 +364,9 @@ class AlfenSelect(AlfenEntity, SelectEntity):
         """Return the default attributes of the element."""
         if self.entity_description.api_param in self.coordinator.device.properties:
             return {
-                "category": self.coordinator.device.properties[
-                    self.entity_description.api_param
-                ][CAT]
+                "category": self.coordinator.device.properties[self.entity_description.api_param][
+                    CAT
+                ]
             }
         return None
 

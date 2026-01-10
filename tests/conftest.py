@@ -101,9 +101,7 @@ def mock_setup_entry_fixture():
 @pytest.fixture(name="mock_aiohttp_session", autouse=True)
 def mock_aiohttp_session_fixture():
     """Mock aiohttp ClientSession."""
-    with patch(
-        "custom_components.alfen_wallbox.coordinator.ClientSession"
-    ) as mock_session_class:
+    with patch("custom_components.alfen_wallbox.coordinator.ClientSession") as mock_session_class:
         session = MagicMock()
         session.closed = False
         session.close = AsyncMock()
@@ -128,9 +126,7 @@ def mock_aiohttp_session_fixture():
 @pytest.fixture(name="mock_tcp_connector", autouse=True)
 def mock_tcp_connector_fixture():
     """Mock aiohttp TCPConnector."""
-    with patch(
-        "custom_components.alfen_wallbox.coordinator.TCPConnector"
-    ) as mock_connector:
+    with patch("custom_components.alfen_wallbox.coordinator.TCPConnector") as mock_connector:
         connector = MagicMock()
         mock_connector.return_value = connector
         yield connector
@@ -139,9 +135,7 @@ def mock_tcp_connector_fixture():
 @pytest.fixture(name="mock_ssl_context", autouse=True)
 def mock_ssl_context_fixture():
     """Mock SSL context."""
-    with patch(
-        "custom_components.alfen_wallbox.coordinator.get_default_context"
-    ) as mock_ssl:
+    with patch("custom_components.alfen_wallbox.coordinator.get_default_context") as mock_ssl:
         context = MagicMock()
         mock_ssl.return_value = context
         yield context

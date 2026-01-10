@@ -36,9 +36,7 @@ PLATFORMS = [
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_migrate_entry(
-    hass: HomeAssistant, config_entry: AlfenConfigEntry
-) -> bool:
+async def async_migrate_entry(hass: HomeAssistant, config_entry: AlfenConfigEntry) -> bool:
     """Migrate old entry."""
     name = config_entry.data.get(CONF_NAME, "Unknown")
     host = config_entry.data.get(CONF_HOST, "Unknown")
@@ -72,13 +70,9 @@ async def async_migrate_entry(
     return True
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, config_entry: AlfenConfigEntry
-) -> bool:
+async def async_setup_entry(hass: HomeAssistant, config_entry: AlfenConfigEntry) -> bool:
     """Set up Alfen from a config entry."""
-    await er.async_migrate_entries(
-        hass, config_entry.entry_id, async_migrate_entity_entry
-    )
+    await er.async_migrate_entries(hass, config_entry.entry_id, async_migrate_entity_entry)
 
     coordinator = AlfenCoordinator(hass, config_entry)
     await coordinator.async_config_entry_first_refresh()
@@ -86,15 +80,11 @@ async def async_setup_entry(
     config_entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
 
-    config_entry.async_on_unload(
-        config_entry.add_update_listener(options_update_listener)
-    )
+    config_entry.async_on_unload(config_entry.add_update_listener(options_update_listener))
     return True
 
 
-async def async_unload_entry(
-    hass: HomeAssistant, config_entry: AlfenConfigEntry
-) -> bool:
+async def async_unload_entry(hass: HomeAssistant, config_entry: AlfenConfigEntry) -> bool:
     """Unload a config entry."""
     coordinator = config_entry.runtime_data
     _LOGGER.debug("[%s] async_unload_entry", coordinator.device.log_id)
@@ -120,9 +110,7 @@ def async_migrate_entity_entry(
         and entity_entry.unique_id.endswith("_uptime_hours")
         and entity_entry.device_class != "duration"
     ):
-        _LOGGER.debug(
-            "Migrating %s to add device_class=duration", entity_entry.entity_id
-        )
+        _LOGGER.debug("Migrating %s to add device_class=duration", entity_entry.entity_id)
         return {"device_class": "duration"}
 
     # Remove device_class from uptime sensor (it returns a string, not numeric) (2025-11-03)
@@ -133,7 +121,8 @@ def async_migrate_entity_entry(
         and entity_entry.device_class == "duration"
     ):
         _LOGGER.debug(
-            "Migrating %s to remove device_class (returns string not numeric)", entity_entry.entity_id
+            "Migrating %s to remove device_class (returns string not numeric)",
+            entity_entry.entity_id,
         )
         return {"device_class": None}
 

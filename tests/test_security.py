@@ -334,7 +334,7 @@ class TestDiagnosticsSanitization:
         assert result.startswith("<redacted:")
         assert result.endswith(">")
         # Hash should be 8 characters
-        hash_part = result[len("<redacted:"):-1]
+        hash_part = result[len("<redacted:") : -1]
         assert len(hash_part) == 8
 
     def test_hash_sensitive_value_consistent(self):

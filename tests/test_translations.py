@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
-TRANSLATIONS_PATH = Path(__file__).parent.parent / "custom_components" / "alfen_wallbox" / "translations"
+TRANSLATIONS_PATH = (
+    Path(__file__).parent.parent / "custom_components" / "alfen_wallbox" / "translations"
+)
 STRINGS_PATH = Path(__file__).parent.parent / "custom_components" / "alfen_wallbox" / "strings.json"
 
 
@@ -119,7 +121,9 @@ class TestTranslationStructure:
         except json.JSONDecodeError as e:
             pytest.fail(f"strings.json is not valid JSON: {e}")
 
-    @pytest.mark.parametrize("translation_file", list(TRANSLATIONS_PATH.glob("*.json")), ids=lambda p: p.name)
+    @pytest.mark.parametrize(
+        "translation_file", list(TRANSLATIONS_PATH.glob("*.json")), ids=lambda p: p.name
+    )
     def test_translation_valid_json(self, translation_file: Path):
         """Test that each translation file is valid JSON."""
         try:
@@ -145,7 +149,9 @@ class TestTranslationStructure:
         assert "entity" in data, "en.json should have 'entity' section"
 
         for entity_type in entity_types:
-            assert entity_type in data["entity"], f"en.json should have entity.{entity_type} section"
+            assert entity_type in data["entity"], (
+                f"en.json should have entity.{entity_type} section"
+            )
 
 
 class TestTranslationQuality:
@@ -158,7 +164,7 @@ class TestTranslationQuality:
         total_keys = len(en_keys)
 
         report = []
-        report.append(f"Translation Completeness Report")
+        report.append("Translation Completeness Report")
         report.append(f"Total keys in en.json: {total_keys}")
         report.append("-" * 50)
 
@@ -169,7 +175,9 @@ class TestTranslationQuality:
             matching_keys = en_keys & trans_keys
             completeness = len(matching_keys) / total_keys * 100
 
-            report.append(f"{trans_file.name}: {completeness:.1f}% ({len(matching_keys)}/{total_keys} keys)")
+            report.append(
+                f"{trans_file.name}: {completeness:.1f}% ({len(matching_keys)}/{total_keys} keys)"
+            )
 
         # This test always passes but prints the report
         print("\n" + "\n".join(report))

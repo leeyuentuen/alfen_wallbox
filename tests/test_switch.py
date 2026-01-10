@@ -1,6 +1,5 @@
 """Test the Alfen Wallbox switch entities."""
 
-
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -186,9 +185,7 @@ async def test_switch_turn_on_active_load_balancing(
     mock_config_entry.runtime_data = coordinator
 
     # Create active load balancing switch (api_param "2064_0")
-    active_lb_desc = next(
-        desc for desc in ALFEN_SWITCH_TYPES if desc.api_param == "2064_0"
-    )
+    active_lb_desc = next(desc for desc in ALFEN_SWITCH_TYPES if desc.api_param == "2064_0")
     switch = AlfenSwitchSensor(mock_config_entry, active_lb_desc)
 
     await switch.async_turn_on()

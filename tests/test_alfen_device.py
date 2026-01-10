@@ -178,12 +178,14 @@ async def test_async_update_processes_queue(alfen_device: AlfenDevice):
     await alfen_device.set_value("2129_0", 16)
 
     # Mock successful update
-    with patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=True)):
-        with patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])):
-            result = await alfen_device.async_update()
+    with (
+        patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=True)),
+        patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])),
+    ):
+        result = await alfen_device.async_update()
 
-            assert result is True
-            assert "2129_0" not in alfen_device.update_values  # Should be removed after success
+        assert result is True
+        assert "2129_0" not in alfen_device.update_values  # Should be removed after success
 
 
 async def test_async_update_retries_failed_updates(alfen_device: AlfenDevice):
@@ -192,12 +194,14 @@ async def test_async_update_retries_failed_updates(alfen_device: AlfenDevice):
     await alfen_device.set_value("2129_0", 16)
 
     # Mock failed update
-    with patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=False)):
-        with patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])):
-            result = await alfen_device.async_update()
+    with (
+        patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=False)),
+        patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])),
+    ):
+        result = await alfen_device.async_update()
 
-            assert result is True
-            assert "2129_0" in alfen_device.update_values  # Should remain for retry
+        assert result is True
+        assert "2129_0" in alfen_device.update_values  # Should remain for retry
 
 
 async def test_auto_login_on_401_get(alfen_device: AlfenDevice, mock_session):
@@ -371,7 +375,9 @@ async def test_log_parsing_ev_connected(alfen_device: AlfenDevice):
 
 async def test_log_parsing_charging_power_on(alfen_device: AlfenDevice):
     """Test parsing CHARGING_POWER_ON log entries."""
-    log_response = """12346_2024-01-15:10:31:00:INFO:charging.c:124:Socket #1 CHARGING_POWER_ON tag: XYZ789"""
+    log_response = (
+        """12346_2024-01-15:10:31:00:INFO:charging.c:124:Socket #1 CHARGING_POWER_ON tag: XYZ789"""
+    )
 
     alfen_device.latest_logs.append(log_response)
 
@@ -385,7 +391,9 @@ async def test_log_parsing_charging_power_on(alfen_device: AlfenDevice):
 
 async def test_log_parsing_charging_power_off(alfen_device: AlfenDevice):
     """Test parsing CHARGING_POWER_OFF log entries."""
-    log_response = """12347_2024-01-15:12:00:00:INFO:charging.c:125:Socket #1 CHARGING_POWER_OFF tag: ABC123"""
+    log_response = (
+        """12347_2024-01-15:12:00:00:INFO:charging.c:125:Socket #1 CHARGING_POWER_OFF tag: ABC123"""
+    )
 
     alfen_device.latest_logs.append(log_response)
     alfen_device.latest_tag = {("socket 1", "start", "taglog"): 12300}
@@ -596,9 +604,11 @@ async def test_get_value(alfen_device: AlfenDevice):
     """Test getting a specific value."""
     alfen_device.properties = {"2129_0": {ID: "2129_0", VALUE: "16"}}
 
-    with patch.object(alfen_device, "_get", new=AsyncMock(return_value={
-        PROPERTIES: [{ID: "2129_0", VALUE: "20"}]
-    })):
+    with patch.object(
+        alfen_device,
+        "_get",
+        new=AsyncMock(return_value={PROPERTIES: [{ID: "2129_0", VALUE: "20"}]}),
+    ):
         await alfen_device.get_value("2129_0")
 
         assert alfen_device.properties["2129_0"][VALUE] == "20"
@@ -754,7 +764,9 @@ async def test_get_log_malformed_lines(alfen_device: AlfenDevice):
 
 async def test_get_log_no_socket_in_message(alfen_device: AlfenDevice):
     """Test log parsing with messages without socket number."""
-    log_without_socket = "12345_2024-01-15:10:30:00:INFO:charging.c:123:No socket number here tag: ABC123"
+    log_without_socket = (
+        "12345_2024-01-15:10:30:00:INFO:charging.c:123:No socket number here tag: ABC123"
+    )
     alfen_device.latest_logs.append(log_without_socket)
 
     with patch.object(alfen_device, "_fetch_log", new=AsyncMock(side_effect=[True, False])):
@@ -779,7 +791,9 @@ async def test_get_log_cable_connected_event(alfen_device: AlfenDevice):
 async def test_get_log_charging_terminating_event(alfen_device: AlfenDevice):
     """Test log parsing with CHARGING_TERMINATING event."""
     alfen_device.latest_tag = {("socket 1", "start", "taglog"): 12300}
-    log_line = "12351_2024-01-15:12:00:00:INFO:charging.c:125:Socket #1 CHARGING_TERMINATING tag: ABC123"
+    log_line = (
+        "12351_2024-01-15:12:00:00:INFO:charging.c:125:Socket #1 CHARGING_TERMINATING tag: ABC123"
+    )
     alfen_device.latest_logs.append(log_line)
 
     with patch.object(alfen_device, "_fetch_log", new=AsyncMock(side_effect=[True, False])):
@@ -808,15 +822,15 @@ async def test_get_log_older_entry_ignored(alfen_device: AlfenDevice):
 
 async def test_transaction_parsing_version_line(alfen_device: AlfenDevice):
     """Test transaction parsing with version line."""
-    transaction_response = """version:2,123_txstart: socket 1, 2024-01-15 10:30:00 15.5kWh tag123 3 1 y"""
+    transaction_response = (
+        """version:2,123_txstart: socket 1, 2024-01-15 10:30:00 15.5kWh tag123 3 1 y"""
+    )
 
     with patch.object(alfen_device, "_get", new=AsyncMock(return_value=transaction_response)):
         await alfen_device._get_transaction()
 
         # Should parse correctly even with version prefix
         assert True
-
-
 
 
 async def test_transaction_parsing_multiple_unknown_lines(alfen_device: AlfenDevice):
@@ -838,12 +852,15 @@ async def test_async_update_without_value_callback(alfen_device: AlfenDevice):
     alfen_device._value_updated_callback = None
     await alfen_device.set_value("2129_0", 20)
 
-    with patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=True)):
-        with patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])):
-            result = await alfen_device.async_update()
+    # Mock successful update without callback
+    with (
+        patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=True)),
+        patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])),
+    ):
+        result = await alfen_device.async_update()
 
-            # Should complete without callback
-            assert result is True
+        # Should complete without callback
+        assert result is True
 
 
 async def test_async_update_transaction_counter(alfen_device: AlfenDevice):
@@ -851,13 +868,16 @@ async def test_async_update_transaction_counter(alfen_device: AlfenDevice):
     alfen_device.category_options = ["generic", "transactions"]
     alfen_device.transaction_counter = 59  # Next will be 60th cycle (0)
 
-    with patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])):
-        with patch.object(alfen_device, "_get_transaction", new=AsyncMock()) as mock_get_trans:
-            await alfen_device.async_update()
+    # Merge nested with statements using parentheses
+    with (
+        patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])),
+        patch.object(alfen_device, "_get_transaction", new=AsyncMock()) as mock_get_trans,
+    ):
+        await alfen_device.async_update()
 
-            # Should call _get_transaction on 60th cycle
-            mock_get_trans.assert_called_once()
-            assert alfen_device.transaction_counter == 0
+        # Should call _get_transaction on 60th cycle
+        mock_get_trans.assert_called_once()
+        assert alfen_device.transaction_counter == 0
 
 
 async def test_request_method_post(alfen_device: AlfenDevice):

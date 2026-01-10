@@ -86,10 +86,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up Alfen switch entities from a config entry."""
 
-    switches = [
-        AlfenSwitchSensor(entry, description)
-        for description in ALFEN_SWITCH_TYPES
-    ]
+    switches = [AlfenSwitchSensor(entry, description) for description in ALFEN_SWITCH_TYPES]
 
     async_add_entities(switches)
 
@@ -113,9 +110,7 @@ class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
 
     entity_description: AlfenSwitchDescription
 
-    def __init__(
-        self, entry: AlfenConfigEntry, description: AlfenSwitchDescription
-    ) -> None:
+    def __init__(self, entry: AlfenConfigEntry, description: AlfenSwitchDescription) -> None:
         """Initialize."""
         super().__init__(entry)
 
@@ -142,9 +137,9 @@ class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
         """Return the default attributes of the element."""
         if self.entity_description.api_param in self.coordinator.device.properties:
             return {
-                "category": self.coordinator.device.properties[
-                    self.entity_description.api_param
-                ][CAT],
+                "category": self.coordinator.device.properties[self.entity_description.api_param][
+                    CAT
+                ],
             }
         return None
 

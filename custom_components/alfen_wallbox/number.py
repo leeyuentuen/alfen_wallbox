@@ -538,8 +538,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     if coordinator.device.get_number_of_sockets() == 2:
         numbers = [
-            AlfenNumber(entry, description)
-            for description in ALFEN_NUMBER_DUAL_SOCKET_TYPES
+            AlfenNumber(entry, description) for description in ALFEN_NUMBER_DUAL_SOCKET_TYPES
         ]
         async_add_entities(numbers)
 
@@ -590,9 +589,7 @@ class AlfenNumber(AlfenEntity, NumberEntity):
         self._attr_assumed_state = description.assumed_state
         self._attr_device_class = description.device_class
         self._attr_icon = description.icon
-        if (
-            description.custom_mode is None
-        ):  # issue with pre Home Assistant Core 2023.6 versions
+        if description.custom_mode is None:  # issue with pre Home Assistant Core 2023.6 versions
             self._attr_mode = NumberMode.SLIDER
         else:
             self._attr_mode = description.custom_mode
@@ -632,9 +629,7 @@ class AlfenNumber(AlfenEntity, NumberEntity):
                 round(float(value), self.entity_description.round_digits),
             )
         else:
-            await self.coordinator.device.set_value(
-                self.entity_description.api_param, int(value)
-            )
+            await self.coordinator.device.set_value(self.entity_description.api_param, int(value))
         self._set_current_option()
 
     @property
@@ -642,9 +637,9 @@ class AlfenNumber(AlfenEntity, NumberEntity):
         """Return the default attributes of the element."""
         if self.entity_description.api_param in self.coordinator.device.properties:
             return {
-                "category": self.coordinator.device.properties[
-                    self.entity_description.api_param
-                ][CAT]
+                "category": self.coordinator.device.properties[self.entity_description.api_param][
+                    CAT
+                ]
             }
 
         return None
@@ -661,9 +656,7 @@ class AlfenNumber(AlfenEntity, NumberEntity):
             if self.entity_description.key == "lb_solar_charging_comfort_level":
                 if self.coordinator.device.max_allowed_phases == 3:
                     self._attr_max_value = self.entity_description.native_max_value
-                    self._attr_native_max_value = (
-                        self.entity_description.native_max_value
-                    )
+                    self._attr_native_max_value = self.entity_description.native_max_value
                 else:
                     self._attr_max_value = 3300
                     self._attr_native_max_value = 3300

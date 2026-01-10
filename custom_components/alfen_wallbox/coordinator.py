@@ -70,6 +70,7 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
         # Create a logging adapter that automatically adds the identifier
         class PrefixAdapter(logging.LoggerAdapter):
             """Logger adapter that prefixes messages with device identifier."""
+
             def process(self, msg, kwargs):
                 return f"[{log_id}] {msg}", kwargs
 
@@ -126,7 +127,10 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
             # Double-check session is still closed after acquiring lock
             # (another thread might have already recreated it)
             if self._session and not self._session.closed:
-                _LOGGER.debug("[%s] Session already open after lock acquisition - skipping recreation", self.device.log_id)
+                _LOGGER.debug(
+                    "[%s] Session already open after lock acquisition - skipping recreation",
+                    self.device.log_id,
+                )
                 return
 
             # Close existing session if it exists
@@ -154,7 +158,9 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
         except TimeoutError as exc:
             _LOGGER.warning("[%s] Update timed out after %ss", self.device.log_id, update_timeout)
             # Force re-login on next update to clear potentially stale connection state
-            _LOGGER.debug("[%s] Resetting logged_in flag to force re-authentication", self.device.log_id)
+            _LOGGER.debug(
+                "[%s] Resetting logged_in flag to force re-authentication", self.device.log_id
+            )
             self.device.logged_in = False
             # Don't sleep - let the coordinator's update_interval handle retry timing
             # Sleeping here would block the entire coordinator

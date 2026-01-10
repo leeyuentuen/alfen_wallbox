@@ -76,7 +76,11 @@ def _sanitize_properties(properties: dict[str, Any]) -> dict[str, Any]:
     for prop_id, prop_data in properties.items():
         if _is_sensitive_property(prop_id):
             # Redact the entire property
-            sanitized[prop_id] = {"id": prop_id, "value": "<redacted>", "cat": prop_data.get("cat", "unknown")}
+            sanitized[prop_id] = {
+                "id": prop_id,
+                "value": "<redacted>",
+                "cat": prop_data.get("cat", "unknown"),
+            }
         else:
             # Copy the property as-is
             sanitized[prop_id] = prop_data

@@ -235,14 +235,10 @@ class AlfenDevice:
         # Process pending value updates
         value_was_updated = False
         updated_categories = set()  # Track which categories had updates
-        successfully_processed_keys = (
-            set()
-        )  # Track which keys were successfully processed
+        successfully_processed_keys = set()  # Track which keys were successfully processed
 
         if values:
-            _LOGGER.debug(
-                "[%s] Processing %d pending value updates", self.log_id, len(values)
-            )
+            _LOGGER.debug("[%s] Processing %d pending value updates", self.log_id, len(values))
 
         for key, value in values.items():
             response = await self._update_value(value["api_param"], value["value"])
@@ -313,16 +309,11 @@ class AlfenDevice:
         """
         # Also include CAT_STATES for status information if not already included
         categories_to_fetch = list(updated_categories)
-        if (
-            CAT_STATES not in categories_to_fetch
-            and CAT_STATES in self.category_options
-        ):
+        if CAT_STATES not in categories_to_fetch and CAT_STATES in self.category_options:
             categories_to_fetch.append(CAT_STATES)
 
         # Filter to only categories that are in category_options
-        categories_to_fetch = [
-            cat for cat in categories_to_fetch if cat in self.category_options
-        ]
+        categories_to_fetch = [cat for cat in categories_to_fetch if cat in self.category_options]
 
         if categories_to_fetch:
             _LOGGER.debug(
@@ -340,10 +331,7 @@ class AlfenDevice:
                             self.properties[prop[ID]] = prop
 
                     # Add delay between category fetches
-                    if (
-                        idx < len(categories_to_fetch) - 1
-                        and self.category_fetch_delay > 0
-                    ):
+                    if idx < len(categories_to_fetch) - 1 and self.category_fetch_delay > 0:
                         await asyncio.sleep(self.category_fetch_delay)
             except Exception as e:
                 _LOGGER.warning(
@@ -365,8 +353,7 @@ class AlfenDevice:
         static_cats = [
             cat
             for cat in CATEGORIES
-            if cat not in (CAT_TRANSACTIONS, CAT_LOGS)
-            and cat not in self.category_options
+            if cat not in (CAT_TRANSACTIONS, CAT_LOGS) and cat not in self.category_options
         ]
         # Ensure generic is always loaded first, even if it's in refresh categories
         if CAT_GENERIC not in static_cats and CAT_GENERIC in CATEGORIES:
@@ -399,9 +386,7 @@ class AlfenDevice:
 
         # Filter out logs/transactions (handled separately with their own schedule)
         regular_categories = [
-            cat
-            for cat in self.category_options
-            if cat not in (CAT_TRANSACTIONS, CAT_LOGS)
+            cat for cat in self.category_options if cat not in (CAT_TRANSACTIONS, CAT_LOGS)
         ]
 
         if not regular_categories:
@@ -411,9 +396,7 @@ class AlfenDevice:
         total_categories = len(regular_categories)
 
         # Calculate start index for this cycle's categories
-        start_idx = (
-            self.category_rotation_index * self.categories_per_cycle
-        ) % total_categories
+        start_idx = (self.category_rotation_index * self.categories_per_cycle) % total_categories
 
         # Get the categories to fetch this cycle (wraps around if needed)
         categories_to_fetch = []
@@ -441,9 +424,7 @@ class AlfenDevice:
                 await asyncio.sleep(self.category_fetch_delay)
 
         # Increment rotation index for next cycle (wrap around to prevent unbounded growth)
-        self.category_rotation_index = (
-            self.category_rotation_index + 1
-        ) % total_categories
+        self.category_rotation_index = (self.category_rotation_index + 1) % total_categories
 
         return dynamic_properties
 
@@ -496,9 +477,7 @@ class AlfenDevice:
         async with self._updating_lock:
             # 1. Proactively login if not logged in
             if not await self._proactive_login():
-                update_duration = (
-                    datetime.datetime.now() - update_start
-                ).total_seconds()
+                update_duration = (datetime.datetime.now() - update_start).total_seconds()
                 _LOGGER.warning(
                     "[%s] Update cycle FAILED (login failed) after %.2fs",
                     self.log_id,
@@ -528,9 +507,7 @@ class AlfenDevice:
 
             # 8. Log total update time for monitoring
             update_duration = (datetime.datetime.now() - update_start).total_seconds()
-            _LOGGER.debug(
-                "[%s] Update cycle completed in %.2fs", self.log_id, update_duration
-            )
+            _LOGGER.debug("[%s] Update cycle completed in %.2fs", self.log_id, update_duration)
 
             return True
 
@@ -620,9 +597,7 @@ class AlfenDevice:
             if self.logged_in:
                 return await self._post(cmd, payload, False)
             else:
-                _LOGGER.debug(
-                    "[%s] Re-authentication failed - skipping retry", self.log_id
-                )
+                _LOGGER.debug("[%s] Re-authentication failed - skipping retry", self.log_id)
                 return None
 
         return None
@@ -703,14 +678,9 @@ class AlfenDevice:
             await self.login()
             # Only retry if login succeeded
             if self.logged_in:
-                return await self._get(
-                    url=url, allowed_login=False, json_decode=json_decode
-                )
-            else:
-                _LOGGER.debug(
-                    "[%s] Re-authentication failed - skipping retry", self.log_id
-                )
-                return None
+                return await self._get(url=url, allowed_login=False, json_decode=json_decode)
+            _LOGGER.debug("[%s] Re-authentication failed - skipping retry", self.log_id)
+            return None
 
         return None
 
@@ -719,13 +689,12 @@ class AlfenDevice:
 
         Returns:
             True if login is allowed, False if rate limited
+
         """
         current_time = time.time()
         # Remove old attempts outside the window
         self._login_attempts = [
-            t
-            for t in self._login_attempts
-            if current_time - t < LOGIN_RATE_LIMIT_WINDOW
+            t for t in self._login_attempts if current_time - t < LOGIN_RATE_LIMIT_WINDOW
         ]
         # Check if we've exceeded the limit
         if len(self._login_attempts) >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS:
@@ -751,6 +720,7 @@ class AlfenDevice:
 
         Returns:
             A sanitized error message safe for logging
+
         """
         # Get exception type and message
         exc_type = type(exc).__name__
@@ -780,6 +750,7 @@ class AlfenDevice:
 
         Returns:
             True if valid, False otherwise
+
         """
         if not api_param or not isinstance(api_param, str):
             return False
@@ -791,6 +762,7 @@ class AlfenDevice:
 
         Returns:
             A dict with RFID tags hashed for privacy
+
         """
         if self.latest_tag is None:
             return {}
@@ -818,6 +790,7 @@ class AlfenDevice:
 
         Returns:
             True if valid structure, False otherwise
+
         """
         if not isinstance(response, dict):
             return False
@@ -874,9 +847,7 @@ class AlfenDevice:
                 )
 
         try:
-            _LOGGER.debug(
-                "[%s] Attempting login for user %s", self.log_id, self.username
-            )
+            _LOGGER.debug("[%s] Attempting login for user %s", self.log_id, self.username)
 
             # Capture response headers to understand authentication mechanism
             response = None
@@ -888,9 +859,7 @@ class AlfenDevice:
                             PARAM_USERNAME: self.username,
                             PARAM_PASSWORD: self.password,
                             # Use friendly name (truncated to 32 chars) as session display name
-                            PARAM_DISPLAY_NAME: self.name[:32]
-                            if self.name
-                            else "HomeAssistant",
+                            PARAM_DISPLAY_NAME: self.name[:32] if self.name else "HomeAssistant",
                         },
                         headers=POST_HEADER_JSON,
                         timeout=ClientTimeout(total=DEFAULT_TIMEOUT),
@@ -911,9 +880,7 @@ class AlfenDevice:
                                 headers_dict,
                             )
                         except Exception:
-                            _LOGGER.debug(
-                                "[%s] Could not log response headers", self.log_id
-                            )
+                            _LOGGER.debug("[%s] Could not log response headers", self.log_id)
 
                         http_response.raise_for_status()
                         try:
@@ -1145,9 +1112,7 @@ class AlfenDevice:
 
     async def clear_transactions(self):
         """Clear the transactions."""
-        response = await self._post(
-            cmd=CMD, payload={PARAM_COMMAND: COMMAND_CLEAR_TRANSACTIONS}
-        )
+        response = await self._post(cmd=CMD, payload={PARAM_COMMAND: COMMAND_CLEAR_TRANSACTIONS})
         _LOGGER.debug("[%s] Clear Transactions response %s", self.log_id, str(response))
 
     async def send_command(self, command: dict[str, Any]) -> None:
@@ -1233,8 +1198,7 @@ class AlfenDevice:
                 )
             )
             is_disconnect = any(
-                event in message
-                for event in ("CHARGING_POWER_OFF", "CHARGING_TERMINATING")
+                event in message for event in ("CHARGING_POWER_OFF", "CHARGING_TERMINATING")
             )
 
             if (is_connect or is_disconnect) and "tag:" in message:
@@ -1343,22 +1307,14 @@ class AlfenDevice:
 
                         # store the latest start kwh and date
                         for key in list(self.latest_tag):
-                            if (
-                                key[0] == socket
-                                and key[1] == "start"
-                                and key[2] == "kWh"
-                            ):
-                                self.latest_tag[socket, "last_start", "kWh"] = (
-                                    self.latest_tag[socket, "start", "kWh"]
-                                )
-                            if (
-                                key[0] == socket
-                                and key[1] == "start"
-                                and key[2] == "date"
-                            ):
-                                self.latest_tag[socket, "last_start", "date"] = (
-                                    self.latest_tag[socket, "start", "date"]
-                                )
+                            if key[0] == socket and key[1] == "start" and key[2] == "kWh":
+                                self.latest_tag[socket, "last_start", "kWh"] = self.latest_tag[
+                                    socket, "start", "kWh"
+                                ]
+                            if key[0] == socket and key[1] == "start" and key[2] == "date":
+                                self.latest_tag[socket, "last_start", "date"] = self.latest_tag[
+                                    socket, "start", "date"
+                                ]
 
                     elif "mv" in line:
                         # _LOGGER.debug("mv line: " + line)
@@ -1438,9 +1394,7 @@ class AlfenDevice:
             )
             return None
 
-    async def request(
-        self, method: str, cmd: str, json_data: dict[str, Any] | None = None
-    ) -> Any:
+    async def request(self, method: str, cmd: str, json_data: dict[str, Any] | None = None) -> Any:
         """Send a request to the API."""
         if method == METHOD_GET:
             response = await self._get(url=self.__get_url(cmd))
@@ -1485,9 +1439,7 @@ class AlfenDevice:
             # Schedule callback as a task to avoid blocking
             task = asyncio.create_task(self._value_updated_callback())
             # Add done callback to log any errors
-            task.add_done_callback(
-                lambda t: t.exception() if not t.cancelled() else None
-            )
+            task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
 
     async def get_value(self, api_param: str) -> None:
         """Get a value from the API."""

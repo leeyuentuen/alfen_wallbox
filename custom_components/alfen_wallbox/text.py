@@ -82,9 +82,7 @@ class AlfenText(AlfenEntity, TextEntity):
 
     entity_description: AlfenTextDescription
 
-    def __init__(
-        self, entry: AlfenConfigEntry, description: AlfenTextDescription
-    ) -> None:
+    def __init__(self, entry: AlfenConfigEntry, description: AlfenTextDescription) -> None:
         """Initialize the Alfen text entity."""
         super().__init__(entry)
 
@@ -102,17 +100,13 @@ class AlfenText(AlfenEntity, TextEntity):
     def _get_current_value(self) -> str | None:
         """Return the current value."""
         if self.entity_description.api_param in self.coordinator.device.properties:
-            return self.coordinator.device.properties[
-                self.entity_description.api_param
-            ][VALUE]
+            return self.coordinator.device.properties[self.entity_description.api_param][VALUE]
         return None
 
     async def async_set_value(self, value: str) -> None:
         """Update the value."""
         self._attr_native_value = value
-        await self.coordinator.device.set_value(
-            self.entity_description.api_param, value
-        )
+        await self.coordinator.device.set_value(self.entity_description.api_param, value)
         self.async_write_ha_state()
 
     @property
@@ -120,8 +114,8 @@ class AlfenText(AlfenEntity, TextEntity):
         """Return the default attributes of the element."""
         if self.entity_description.api_param in self.coordinator.device.properties:
             return {
-                "category": self.coordinator.device.properties[
-                    self.entity_description.api_param
-                ][CAT],
+                "category": self.coordinator.device.properties[self.entity_description.api_param][
+                    CAT
+                ],
             }
         return None
