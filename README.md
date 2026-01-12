@@ -50,7 +50,7 @@ The component is a fork of the [Garo Wallbox custom integration](https://github.
 - ✅ Added automatic retry for failed updates
 - ✅ Improved error logging and visibility
 
-Previously, users experienced "silent failures" when changing settings (e.g., max current) - values wouldn't update and required manual retry. This has been resolved. See [LOCKING_FIXES.md](LOCKING_FIXES.md) for technical details.
+Previously, users experienced "silent failures" when changing settings (e.g., max current) - values wouldn't update and required manual retry. This has been resolved.
 
 > After reverse engineering the API myself I found out that there is already a Python libary wrapping the Alfen API.
 > https://gitlab.com/LordGaav/alfen-eve/-/tree/develop/alfeneve
