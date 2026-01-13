@@ -322,10 +322,10 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         name="System Datetime",
         icon="mdi:timer-outline",
         api_param="2059_0",
-        unit=None,
+        unit=UnitOfTime.MINUTES,
         round_digits=None,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.TIMESTAMP,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.DURATION,
     ),
     AlfenSensorDescription(
         key="bootups",
@@ -2035,7 +2035,15 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             #    return prop[VALUE]
 
             if self.entity_description.key == "system_date_time":
-                return datetime.datetime.fromtimestamp(prop[VALUE] / 1000, tz=datetime.UTC)
+                # 1. Convert wallbox timestamp (ms) to a UTC datetime object
+                wallbox_time = datetime.datetime.fromtimestamp(prop[VALUE] / 1000, tz=datetime.UTC)
+
+                # 2. Calculate the difference from the current time
+                diff = datetime.datetime.now(datetime.UTC) - wallbox_time
+
+                # 3. Convert the difference into total minutes
+                # Using round(..., 1) gives one decimal place (e.g., 5.5 min)
+                return round(diff.total_seconds() / 60, 1)
 
             # change milliseconds to d/m/y HH:MM:SS
             if self.entity_description.api_param in ("2187_0", "2059_0"):

@@ -54,9 +54,7 @@ DEFAULT_OPTIONS = {
 class AlfenOptionsFlowHandler(OptionsFlow):
     """Handle Alfen options."""
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Manage the options flow."""
         if user_input is not None:
             return self.async_create_entry(data=user_input)
@@ -73,9 +71,7 @@ class AlfenOptionsFlowHandler(OptionsFlow):
                     ): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
                     vol.Required(
                         CONF_TIMEOUT,
-                        default=self.config_entry.options.get(
-                            CONF_TIMEOUT, DEFAULT_TIMEOUT
-                        ),
+                        default=self.config_entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
                     ): vol.All(vol.Coerce(int), vol.Range(min=1, max=30)),
                     vol.Required(
                         CONF_CATEGORIES_PER_CYCLE,
@@ -172,9 +168,7 @@ class AlfenFlowHandler(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        CONF_HOST, default=reconfigure_entry.data.get(CONF_HOST)
-                    ): str,
+                    vol.Required(CONF_HOST, default=reconfigure_entry.data.get(CONF_HOST)): str,
                     vol.Required(
                         CONF_USERNAME,
                         default=reconfigure_entry.data.get(CONF_USERNAME, "admin"),

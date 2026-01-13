@@ -83,6 +83,7 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
             update_interval=timedelta(
                 seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
             ),
+            config_entry=entry,
         )
 
         self.entry = entry
