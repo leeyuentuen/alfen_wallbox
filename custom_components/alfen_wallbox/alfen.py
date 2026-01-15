@@ -1252,7 +1252,7 @@ class AlfenDevice:
                 break
 
             for line in lines:
-                # _LOGGER.debug("Line: %s", line)
+                _LOGGER.debug("Line: %s", line)
                 if not line:
                     transactionLoop = False
                     break
@@ -1274,7 +1274,7 @@ class AlfenDevice:
 
                         date = splitline[5] + " " + splitline[6]
                         kWh = splitline[7].split("kWh", 2)[0]
-                        # tag = splitline[8]  # Unused
+                        tag = splitline[8]
 
                         # 3: transaction id
                         # 9: 1
@@ -1282,7 +1282,7 @@ class AlfenDevice:
 
                         if self.latest_tag is None:
                             self.latest_tag = {}
-                        # self.latest_tag[socket, "start", "tag"] = tag
+                        self.latest_tag[socket, "start", "tag"] = tag
                         self.latest_tag[socket, "start", "date"] = date
                         self.latest_tag[socket, "start", "kWh"] = kWh
 
@@ -1294,14 +1294,14 @@ class AlfenDevice:
 
                         date = splitline[5] + " " + splitline[6]
                         kWh = splitline[7].split("kWh", 2)[0]
-                        # tag = splitline[8]  # Unused
+                        tag = splitline[8]
 
                         # 2: transaction id
                         # 9: y
 
                         if self.latest_tag is None:
                             self.latest_tag = {}
-                        # self.latest_tag[socket, "stop", "tag"] = tag
+                        self.latest_tag[socket, "stop", "tag"] = tag
                         self.latest_tag[socket, "stop", "date"] = date
                         self.latest_tag[socket, "stop", "kWh"] = kWh
 
@@ -1347,7 +1347,7 @@ class AlfenDevice:
                         transactionLoop = False
                         break
                     else:
-                        _LOGGER.debug("[%s] Unknown line: %s", self.log_id, str(line))
+                        # _LOGGER.debug("[%s] Unknown line: %s", self.log_id, str(line))
                         offset = offset + 1
                         unknownLine += 1
                         if unknownLine > 2:
