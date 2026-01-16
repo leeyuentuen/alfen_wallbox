@@ -18,6 +18,7 @@ PROP = "prop"
 INFO = "info"
 LOGIN = "login"
 LOGOUT = "logout"
+FORCE_TRANSACTION_UPDATE = "Force Transaction Update"
 
 
 PARAM_USERNAME = "username"

@@ -11,6 +11,7 @@ from .const import (
     CMD,
     COMMAND_CLEAR_TRANSACTIONS,
     COMMAND_REBOOT,
+    FORCE_TRANSACTION_UPDATE,
     FORCE_UPDATE,
     LOGIN,
     LOGOUT,
@@ -61,7 +62,7 @@ ALFEN_BUTTON_TYPES: Final[tuple[AlfenButtonDescription, ...]] = (
         key="wallbox_force_update",
         name="Force Update",
         method=METHOD_POST,
-        url_action="Force Update",
+        url_action=FORCE_UPDATE,
         json_data=None,
     ),
     AlfenButtonDescription(
@@ -70,6 +71,13 @@ ALFEN_BUTTON_TYPES: Final[tuple[AlfenButtonDescription, ...]] = (
         method=METHOD_POST,
         url_action=CMD,
         json_data={PARAM_COMMAND: COMMAND_CLEAR_TRANSACTIONS},
+    ),
+    AlfenButtonDescription(
+        key="force_fetch_transaction",
+        name="Force Fetch Transaction",
+        method="",
+        url_action=FORCE_TRANSACTION_UPDATE,
+        json_data=None,
     ),
 )
 
@@ -106,6 +114,11 @@ class AlfenButton(AlfenEntity, ButtonEntity):
         """Press the button."""
         if self.entity_description.url_action == FORCE_UPDATE:
             self.coordinator.device.get_static_properties = True
+            await self.coordinator.device.async_update()
+            return
+        if self.entity_description.url_action == FORCE_TRANSACTION_UPDATE:
+            self.coordinator.device.force_update_transaction = True
+            self.coordinator.device.transaction_offset = 0
             await self.coordinator.device.async_update()
             return
 

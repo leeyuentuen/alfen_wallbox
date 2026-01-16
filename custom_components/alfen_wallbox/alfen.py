@@ -125,6 +125,8 @@ class AlfenDevice:
         self._session_recreate_callback: Callable[[], Any] | None = None
         # Rate limiting for login attempts (security)
         self._login_attempts: list[float] = []
+        # force update transaction
+        self.force_update_transaction = False
 
     async def init(self) -> bool:
         """Initialize the Alfen API."""
@@ -459,7 +461,8 @@ class AlfenDevice:
         # With 30s scan interval, this means every ~30 minutes
         if CAT_TRANSACTIONS in self.category_options:
             self.transaction_counter = (self.transaction_counter + 1) % 60
-            if self.transaction_counter == 0:
+            if self.transaction_counter == 0 or self.force_update_transaction is True:
+                self.force_update_transaction = False
                 await self._get_transaction()
 
     async def async_update(self) -> bool:
@@ -1230,11 +1233,12 @@ class AlfenDevice:
         transactionLoop = True
         counter = 0
         unknownLine = 0
+        maxOffset = 500000
         while transactionLoop:
             # Validate and cap offset to prevent unbounded values
             if not isinstance(offset, int) or offset < 0:
                 offset = 0
-            offset = min(offset, 100000)
+            offset = min(offset, maxOffset)
 
             # Use urlencode for safe URL construction
             query = urlencode({OFFSET: offset})
@@ -1252,7 +1256,7 @@ class AlfenDevice:
                 break
 
             for line in lines:
-                _LOGGER.debug("Line: %s", line)
+                # _LOGGER.debug("Line: %s", line)
                 if not line:
                     transactionLoop = False
                     break
@@ -1336,11 +1340,11 @@ class AlfenDevice:
                         if tid > offset:
                             offset = tid
                             # Cap offset to prevent unbounded growth
-                            offset = min(offset, 100000)
+                            offset = min(offset, maxOffset)
                             continue
                         offset = offset + 1
                         # Cap offset to prevent unbounded growth
-                        offset = min(offset, 100000)
+                        offset = min(offset, maxOffset)
                         continue
                     elif "0_Empty" in line:
                         # break if the transaction is empty
