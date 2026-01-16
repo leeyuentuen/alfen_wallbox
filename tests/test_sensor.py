@@ -90,9 +90,7 @@ async def test_sensor_uptime_conversion(mock_entry, mock_coordinator):
 
 async def test_sensor_meter_reading_conversion(mock_entry, mock_coordinator):
     """Test meter reading converts W to kWh."""
-    meter_desc = next(
-        d for d in ALFEN_SENSOR_TYPES if d.key == "meter_reading_socket_1"
-    )
+    meter_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "meter_reading_socket_1")
     entity = AlfenSensor(mock_entry, meter_desc)
 
     value = entity.native_value
@@ -103,9 +101,7 @@ async def test_sensor_meter_reading_conversion(mock_entry, mock_coordinator):
 
 async def test_sensor_pwm_duty_cycle(mock_entry, mock_coordinator):
     """Test PWM duty cycle converts to percentage."""
-    pwm_desc = next(
-        d for d in ALFEN_SENSOR_TYPES if d.key == "comm_car_pwm_duty_cycle_socket_1"
-    )
+    pwm_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "comm_car_pwm_duty_cycle_socket_1")
     entity = AlfenSensor(mock_entry, pwm_desc)
 
     value = entity.native_value
@@ -116,9 +112,7 @@ async def test_sensor_pwm_duty_cycle(mock_entry, mock_coordinator):
 
 async def test_sensor_timestamp_conversion(mock_entry, mock_coordinator):
     """Test timestamp sensors convert to datetime."""
-    last_modify_desc = next(
-        d for d in ALFEN_SENSOR_TYPES if d.key == "last_modify_datetime"
-    )
+    last_modify_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "last_modify_datetime")
     entity = AlfenSensor(mock_entry, last_modify_desc)
 
     value = entity.native_value
@@ -130,9 +124,7 @@ async def test_sensor_timestamp_conversion(mock_entry, mock_coordinator):
 
 async def test_sensor_allowed_phase_dict(mock_entry, mock_coordinator):
     """Test allowed phase dictionary lookup."""
-    phase_desc = next(
-        d for d in ALFEN_SENSOR_TYPES if d.key == "ps_connector_1_max_allowed_phase"
-    )
+    phase_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "ps_connector_1_max_allowed_phase")
     entity = AlfenSensor(mock_entry, phase_desc)
 
     value = entity.native_value
@@ -176,9 +168,7 @@ async def test_sensor_main_state(mock_entry, mock_coordinator):
 
 async def test_sensor_ocpp_boot_status(mock_entry, mock_coordinator):
     """Test OCPP boot notification status."""
-    ocpp_desc = next(
-        d for d in ALFEN_SENSOR_TYPES if d.key == "ocpp_boot_notification_state"
-    )
+    ocpp_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "ocpp_boot_notification_state")
     entity = AlfenSensor(mock_entry, ocpp_desc)
 
     value = entity.native_value
@@ -189,9 +179,7 @@ async def test_sensor_ocpp_boot_status(mock_entry, mock_coordinator):
 
 async def test_sensor_modbus_connection_state(mock_entry, mock_coordinator):
     """Test Modbus connection state."""
-    modbus_desc = next(
-        d for d in ALFEN_SENSOR_TYPES if d.key == "modbus_tcp_ip_connection_state"
-    )
+    modbus_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "modbus_tcp_ip_connection_state")
     entity = AlfenSensor(mock_entry, modbus_desc)
 
     value = entity.native_value
@@ -283,9 +271,7 @@ async def test_sensor_smart_meter_l3(mock_entry, mock_coordinator):
 
 async def test_sensor_smart_meter_total(mock_entry, mock_coordinator):
     """Test smart meter total power calculation."""
-    smart_meter_desc = next(
-        d for d in ALFEN_SENSOR_TYPES if d.key == "smart_meter_total"
-    )
+    smart_meter_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "smart_meter_total")
     entity = AlfenSensor(mock_entry, smart_meter_desc)
 
     value = entity.native_value
@@ -370,9 +356,7 @@ async def test_sensor_transaction_charging_time(mock_entry, mock_coordinator):
     }
 
     transaction_desc = next(
-        d
-        for d in ALFEN_SENSOR_TYPES
-        if d.key == "custom_transaction_socket_1_charging_time"
+        d for d in ALFEN_SENSOR_TYPES if d.key == "custom_transaction_socket_1_charging_time"
     )
     entity = AlfenSensor(mock_entry, transaction_desc)
 
@@ -395,9 +379,7 @@ async def test_sensor_transaction_charging_time_stopped(mock_entry, mock_coordin
     }
 
     transaction_desc = next(
-        d
-        for d in ALFEN_SENSOR_TYPES
-        if d.key == "custom_transaction_socket_1_charging_time"
+        d for d in ALFEN_SENSOR_TYPES if d.key == "custom_transaction_socket_1_charging_time"
     )
     entity = AlfenSensor(mock_entry, transaction_desc)
 
@@ -415,9 +397,7 @@ async def test_sensor_transaction_last_charge_time(mock_entry, mock_coordinator)
     }
 
     transaction_desc = next(
-        d
-        for d in ALFEN_SENSOR_TYPES
-        if d.key == "custom_transaction_socket_1_charged_time"
+        d for d in ALFEN_SENSOR_TYPES if d.key == "custom_transaction_socket_1_charged_time"
     )
     entity = AlfenSensor(mock_entry, transaction_desc)
 
@@ -560,9 +540,7 @@ async def test_sensor_meter_reading_zero(mock_entry, mock_coordinator):
         "cat": "meter1",
     }
 
-    meter_desc = next(
-        d for d in ALFEN_SENSOR_TYPES if d.key == "meter_reading_socket_1"
-    )
+    meter_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "meter_reading_socket_1")
     entity = AlfenSensor(mock_entry, meter_desc)
 
     value = entity.native_value
@@ -618,9 +596,7 @@ async def test_main_sensor_extra_state_attributes(mock_entry, mock_coordinator):
     assert attrs["category"] == "states"
 
 
-async def test_main_sensor_naming_consistency_with_alfen_sensor(
-    mock_entry, mock_coordinator
-):
+async def test_main_sensor_naming_consistency_with_alfen_sensor(mock_entry, mock_coordinator):
     """Test that AlfenMainSensor naming is consistent with AlfenSensor."""
     status_desc = ALFEN_SENSOR_TYPES[0]
 

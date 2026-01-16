@@ -28,12 +28,13 @@ async def test_button_setup(
     await async_setup_entry(hass, mock_config_entry, add_entities)
 
     # Should create 5 button entities
-    assert len(entities) == 5
+    assert len(entities) == 6
     assert entities[0].entity_description.key == "reboot_wallbox"
     assert entities[1].entity_description.key == "auth_logout"
     assert entities[2].entity_description.key == "auth_login"
     assert entities[3].entity_description.key == "wallbox_force_update"
     assert entities[4].entity_description.key == "clear_transaction"
+    assert entities[5].entity_description.key == "force_fetch_transaction"
 
 
 async def test_button_initialization(

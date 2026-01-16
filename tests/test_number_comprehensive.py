@@ -111,9 +111,7 @@ async def test_number_comfort_level_single_phase(mock_entry, mock_coordinator):
     mock_coordinator.device.max_allowed_phases = 1
 
     # Get comfort level description
-    comfort_desc = next(
-        d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level"
-    )
+    comfort_desc = next(d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level")
     entity = AlfenNumber(mock_entry, comfort_desc)
 
     # Get value which triggers max value adjustment
@@ -129,9 +127,7 @@ async def test_number_comfort_level_three_phase(mock_entry, mock_coordinator):
     mock_coordinator.device.max_allowed_phases = 3
 
     # Get comfort level description
-    comfort_desc = next(
-        d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level"
-    )
+    comfort_desc = next(d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level")
     entity = AlfenNumber(mock_entry, comfort_desc)
 
     # Get value which triggers max value check
@@ -204,9 +200,7 @@ async def test_number_async_set_green_share_service(mock_entry, mock_coordinator
 
 async def test_number_async_set_comfort_power_service(mock_entry, mock_coordinator):
     """Test async_set_comfort_power service method."""
-    comfort_desc = next(
-        d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level"
-    )
+    comfort_desc = next(d for d in ALFEN_NUMBER_TYPES if d.key == "lb_solar_charging_comfort_level")
     entity = AlfenNumber(mock_entry, comfort_desc)
 
     with patch.object(entity, "async_write_ha_state"):
@@ -290,9 +284,7 @@ async def test_number_mode_box_custom(mock_entry, mock_coordinator):
     from homeassistant.components.number import NumberMode
 
     # Find a description with custom NumberMode.BOX
-    box_mode_desc = next(
-        d for d in ALFEN_NUMBER_TYPES if d.custom_mode == NumberMode.BOX
-    )
+    box_mode_desc = next(d for d in ALFEN_NUMBER_TYPES if d.custom_mode == NumberMode.BOX)
     entity = AlfenNumber(mock_entry, box_mode_desc)
 
     assert entity._attr_mode == NumberMode.BOX
