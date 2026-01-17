@@ -25,6 +25,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
+from homeassistant.util import dt as dt_util
 
 from .const import CAT, ID, SERVICE_REBOOT_WALLBOX, VALUE
 from .coordinator import AlfenConfigEntry
@@ -1214,6 +1215,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param="3600_2",
         unit=None,
         round_digits=0,
+        device_class=SensorDeviceClass.TIMESTAMP,
     ),
     AlfenSensorDescription(
         key="ocpp_boot_accept_time",
@@ -1222,16 +1224,18 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         api_param="3600_3",
         unit=None,
         round_digits=0,
+        device_class=SensorDeviceClass.TIMESTAMP,
     ),
-    # AlfenSensorDescription(
-    #     key="ocpp_Heartbeat_last_received",
-    #     name="OCPP Heartbeat Last Received",
-    #     icon="mdi:information-outline",
-    #     state_class=None,
-    #     api_param="3600_6",
-    #     unit=None,
-    #     round_digits=0,
-    # ),
+    AlfenSensorDescription(
+        key="ocpp_Heartbeat_last_received",
+        name="OCPP Heartbeat Last Received",
+        icon="mdi:information-outline",
+        state_class=None,
+        api_param="3600_6",
+        unit=None,
+        round_digits=0,
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
     AlfenSensorDescription(
         key="ocpp_Heartbeat_last_failed",
         name="OCPP Heartbeat Last Failed",
@@ -1240,6 +1244,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         state_class=None,
         unit=None,
         round_digits=0,
+        device_class=SensorDeviceClass.TIMESTAMP,
     ),
     AlfenSensorDescription(
         key="ocpp_Heartbeat_last_sent",
@@ -1249,6 +1254,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         state_class=None,
         unit=None,
         round_digits=0,
+        device_class=SensorDeviceClass.TIMESTAMP,
     ),
 )
 
@@ -1616,7 +1622,8 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     if coordinator.device.get_number_of_sockets() == 2:
         sensors = [
-            AlfenSensor(entry, description) for description in ALFEN_SENSOR_DUAL_SOCKET_TYPES
+            AlfenSensor(entry, description)
+            for description in ALFEN_SENSOR_DUAL_SOCKET_TYPES
         ]
         async_add_entities(sensors)
 
@@ -1634,7 +1641,9 @@ class AlfenMainSensor(AlfenEntity):
 
     entity_description: AlfenSensorDescription
 
-    def __init__(self, entry: AlfenConfigEntry, description: AlfenSensorDescription) -> None:
+    def __init__(
+        self, entry: AlfenConfigEntry, description: AlfenSensorDescription
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(entry)
 
@@ -1703,7 +1712,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
 
     entity_description: AlfenSensorDescription
 
-    def __init__(self, entry: AlfenConfigEntry, description: AlfenSensorDescription) -> None:
+    def __init__(
+        self, entry: AlfenConfigEntry, description: AlfenSensorDescription
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(entry)
 
@@ -1717,12 +1728,16 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         if description.unit is not None:
             self._attr_native_unit_of_measurement = description.unit
 
+        self._last_raw_duration = None
+
         self._async_update_attrs()
 
     def _get_current_value(self) -> StateType | None:
         """Get the current value."""
         if self.entity_description.api_param in self.coordinator.device.properties:
-            return self.coordinator.device.properties[self.entity_description.api_param][VALUE]
+            return self.coordinator.device.properties[
+                self.entity_description.api_param
+            ][VALUE]
         return None
 
     @callback
@@ -1745,7 +1760,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         """Return the icon of the sensor."""
         return self.entity_description.icon
 
-    def _processTransactionKWh(self, socket: str, entity_description: AlfenSensorDescription):
+    def _processTransactionKWh(
+        self, socket: str, entity_description: AlfenSensorDescription
+    ):
         if self.coordinator.device.latest_tag is None:
             return None
         ## calculate the usage
@@ -1809,7 +1826,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             return value
         return None
 
-    def _processTransactionTime(self, socket: str, entity_description: AlfenSensorDescription):
+    def _processTransactionTime(
+        self, socket: str, entity_description: AlfenSensorDescription
+    ):
         if self.coordinator.device.latest_tag is None:
             return None
 
@@ -1856,14 +1875,18 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             and mvDate is not None
             and entity_description.key == "custom_transaction_socket_1_charging_time"
         ):
-            return self._getChargingTime(startDate, mvDate, stopDate, entity_description)
+            return self._getChargingTime(
+                startDate, mvDate, stopDate, entity_description
+            )
 
         if (
             startDate2 is not None
             and mvDate2 is not None
             and entity_description.key == "custom_transaction_socket_2_charging_time"
         ):
-            return self._getChargingTime(startDate2, mvDate2, stopDate2, entity_description)
+            return self._getChargingTime(
+                startDate2, mvDate2, stopDate2, entity_description
+            )
 
         if (
             lastDate is not None
@@ -1885,15 +1908,20 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             if self.coordinator.device.latest_tag is None:
                 return "No Tag"
             for key, value in self.coordinator.device.latest_tag.items():
-                if key[0] == f"socket {socker_number}" and key[1] == "start" and key[2] == "tag":
+                if (
+                    key[0] == f"socket {socker_number}"
+                    and key[1] == "start"
+                    and key[2] == "tag"
+                ):
                     return value
-            return "No Tag"
 
         if self.entity_description.key in (
             f"custom_transaction_socket_{socker_number}_charging",
             f"custom_transaction_socket_{socker_number}_charged",
         ):
-            value = self._processTransactionKWh(f"socket {socker_number}", self.entity_description)
+            value = self._processTransactionKWh(
+                f"socket {socker_number}", self.entity_description
+            )
             if value is not None:
                 return value
 
@@ -1919,7 +1947,11 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         if entity_description.round_digits is not None:
             return round(
                 value,
-                (entity_description.round_digits if entity_description.round_digits > 0 else None),
+                (
+                    entity_description.round_digits
+                    if entity_description.round_digits > 0
+                    else None
+                ),
             )
         return value
 
@@ -1938,7 +1970,11 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         if entity_description.round_digits is not None:
             return round(
                 value,
-                (entity_description.round_digits if entity_description.round_digits > 0 else None),
+                (
+                    entity_description.round_digits
+                    if entity_description.round_digits > 0
+                    else None
+                ),
             )
         return value
 
@@ -2033,9 +2069,35 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             # if self.entity_description.key == "uptime":
             #    return prop[VALUE]
 
+            if self.entity_description.api_param in (
+                "3600_2",
+                "3600_3",
+                "3600_6",
+                "3600_7",
+                "3600_8",
+            ):
+                # if the difference is only less then 10 seconds, don't update them
+
+                # 1. Get current time with timezone (now() in 2026 is always aware)
+                now = dt_util.now()
+
+                # 2. Subtract the milliseconds (e.g., 39631) to get the actual event time
+                event_time = now - datetime.timedelta(milliseconds=float(prop[VALUE]))
+
+                # 3 don't update if the native value is the same
+                if self._last_raw_duration == prop[VALUE]:
+                    return self._attr_native_value
+                # 4. Return the datetime object directly
+                # Note: Use # type: ignore if your IDE complains about StateType
+                self._attr_native_value = event_time
+                self._last_raw_duration = prop[VALUE]
+                return event_time  # type: ignore  # noqa: PGH003
+
             if self.entity_description.key == "system_date_time":
                 # 1. Convert wallbox timestamp (ms) to a UTC datetime object
-                wallbox_time = datetime.datetime.fromtimestamp(prop[VALUE] / 1000, tz=datetime.UTC)
+                wallbox_time = datetime.datetime.fromtimestamp(
+                    prop[VALUE] / 1000, tz=datetime.UTC
+                )
 
                 # 2. Calculate the difference from the current time
                 diff = datetime.datetime.now(datetime.UTC) - wallbox_time
@@ -2049,15 +2111,6 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 return datetime.datetime.fromtimestamp(prop[VALUE] / 1000).strftime(
                     "%d/%m/%Y %H:%M:%S"
                 )
-            # change milliseconds to HH:MM:SS
-            if self.entity_description.api_param in (
-                "3600_2",
-                "3600_3",
-                "3600_6",
-                "3600_7",
-                "3600_8",
-            ):
-                return datetime.datetime.fromtimestamp(prop[VALUE] / 1000).strftime("%H:%M:%S")
 
             # Allowed phase 1 or Allowed Phase 2
             if self.entity_description.api_param in ("312E_0", "312F_0"):
@@ -2089,7 +2142,11 @@ class AlfenSensor(AlfenEntity, SensorEntity):
 
             # wallbox display message
             if self.entity_description.api_param in ("3190_2", "3191_2"):
-                return str(prop[VALUE]) + ": " + DISPLAY_ERROR_DICT.get(prop[VALUE], "Unknown")
+                return (
+                    str(prop[VALUE])
+                    + ": "
+                    + DISPLAY_ERROR_DICT.get(prop[VALUE], "Unknown")
+                )
 
             # Status code
             if self.entity_description.api_param in ("2501_2", "2502_2"):
@@ -2103,9 +2160,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         """Return the default attributes of the element."""
         if self.entity_description.api_param in self.coordinator.device.properties:
             return {
-                "category": self.coordinator.device.properties[self.entity_description.api_param][
-                    CAT
-                ]
+                "category": self.coordinator.device.properties[
+                    self.entity_description.api_param
+                ][CAT]
             }
         return None
 
