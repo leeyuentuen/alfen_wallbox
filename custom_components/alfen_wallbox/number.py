@@ -86,7 +86,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
     ),
     AlfenNumberDescription(
         key="max_station_current",
-        name="Max. Station Current",
+        name="Station maximum Current",
         state=None,
         icon="mdi:current-ac",
         assumed_state=False,
@@ -146,7 +146,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
     ),
     AlfenNumberDescription(
         key="dp_light_intensity",
-        name="Display Light Intensity %",
+        name="Display & LED Brightness",
         state=None,
         icon="mdi:lightbulb",
         assumed_state=False,
@@ -220,36 +220,6 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         round_digits=None,
     ),
     AlfenNumberDescription(
-        key="ws_wired_socket_timeout",
-        name="WS Wired websocket timeout (s)",
-        state=None,
-        icon="mdi:timer-sand",
-        assumed_state=False,
-        device_class=None,
-        native_min_value=0,
-        native_max_value=30,
-        native_step=1,
-        custom_mode=None,
-        unit_of_measurement=UnitOfTime.SECONDS,
-        api_param="208B_1",
-        round_digits=None,
-    ),
-    AlfenNumberDescription(
-        key="ws_mobile_socket_timeout",
-        name="WS Mobile websocket timeout (s)",
-        state=None,
-        icon="mdi:timer-sand",
-        assumed_state=False,
-        device_class=None,
-        native_min_value=0,
-        native_max_value=30,
-        native_step=1,
-        custom_mode=None,
-        unit_of_measurement=UnitOfTime.SECONDS,
-        api_param="208B_2",
-        round_digits=None,
-    ),
-    AlfenNumberDescription(
         key="ocpp_wired_ocpp_send_timeout",
         name="OCPP Wired OCPP send timeout (s)",
         state=None,
@@ -306,7 +276,7 @@ ALFEN_NUMBER_TYPES: Final[tuple[AlfenNumberDescription, ...]] = (
         native_step=1,
         custom_mode=None,
         unit_of_measurement=UnitOfTime.SECONDS,
-        api_param="208E_1",
+        api_param="208E_2",
         round_digits=None,
     ),
     AlfenNumberDescription(
@@ -592,7 +562,7 @@ class AlfenNumber(AlfenEntity, NumberEntity):
         if description.custom_mode is None:  # issue with pre Home Assistant Core 2023.6 versions
             self._attr_mode = NumberMode.SLIDER
         else:
-            self._attr_mode = description.custom_mode
+            self._a = description.custom_mode
         self._attr_native_unit_of_measurement = description.unit_of_measurement
         self._attr_native_value = description.state
         self.entity_description = description

@@ -26,6 +26,7 @@ class AlfenSelectDescriptionMixin:
 
     api_param: str
     options_dict: dict[str, int] | dict[str, str]
+    read_only: bool
 
 
 @dataclass(frozen=True)
@@ -138,6 +139,20 @@ CAR_DISCONNECT_ACTION_DICT: Final[dict[str, int]] = {
     "Abort Unlock When Offline": 3,
 }
 
+WIFI_SECURITY_MODE_DICT: Final[dict[str, int]] = {
+    "WPA PSK security with TKIP": 2097154,
+    "WPA PSK security with AES": 2097156,
+    "WPA PSK security with AES & TKIP": 2097158,
+    "WPA2 PSK security with AES": 4194308,
+    "WPA3 PSK security with AES": 16777220,
+    "WPA2 PSK security with TKIP": 4194306,
+    "WPA2 PSK security with AES & TKIP": 4194310,
+    "WPA2 WPA PSK Security with AES": 6291460,
+    "WPA2 WPA PSK Security with AES & TKIP": 6291462,
+    "WPA3 WPA2 PSK Security with AES": 21233668,
+}
+
+
 ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
     AlfenSelectDescription(
         key="lb_solar_charging_mode",
@@ -146,6 +161,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(CHARGING_MODE_DICT),
         options_dict=CHARGING_MODE_DICT,
         api_param="3280_1",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="lb_phase_connection",
@@ -154,6 +170,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(PHASE_ROTATION_DICT),
         options_dict=PHASE_ROTATION_DICT,
         api_param="2069_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="auth_mode",
@@ -162,6 +179,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(AUTH_MODE_DICT),
         options_dict=AUTH_MODE_DICT,
         api_param="2126_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="load_balancing_protocol",
@@ -170,6 +188,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(LOAD_BALANCE_PROTOCOL_DICT),
         options_dict=LOAD_BALANCE_PROTOCOL_DICT,
         api_param="5217_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="lb_active_balancing_received_measurements",
@@ -178,6 +197,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(LOAD_BALANCE_RECEIVED_MEASUREMENTS_DICT),
         options_dict=LOAD_BALANCE_RECEIVED_MEASUREMENTS_DICT,
         api_param="206F_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="display_language",
@@ -186,6 +206,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(DISPLAY_LANGUAGE_DICT),
         options_dict=DISPLAY_LANGUAGE_DICT,
         api_param="205D_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="bo_network_1_connection_priority",
@@ -194,6 +215,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(PRIORITIES_DICT),
         options_dict=PRIORITIES_DICT,
         api_param="20F0_E",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="bo_network_2_connection_priority",
@@ -202,6 +224,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(PRIORITIES_DICT),
         options_dict=PRIORITIES_DICT,
         api_param="20F1_E",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="socket_1_operation_mode",
@@ -210,6 +233,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(OPERATIVE_MODE_DICT),
         options_dict=OPERATIVE_MODE_DICT,
         api_param="205F_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="gprs_network_mode",
@@ -218,6 +242,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(GPRS_NETWORK_MODE_DICT),
         options_dict=GPRS_NETWORK_MODE_DICT,
         api_param="2113_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="gprs_technology",
@@ -226,6 +251,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(GPRS_TECHNOLOGY_DICT),
         options_dict=GPRS_TECHNOLOGY_DICT,
         api_param="2114_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="lb_dsmr_smr_interface",
@@ -234,6 +260,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(DSMR_SMR_INTERFACE_DICT),
         options_dict=DSMR_SMR_INTERFACE_DICT,
         api_param="2191_1",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="lb_data_source",
@@ -242,6 +269,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(LOAD_BALANCE_DATA_SOURCE_DICT),
         options_dict=LOAD_BALANCE_DATA_SOURCE_DICT,
         api_param="2530_1",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="ps_installation_max_allowed_phase",
@@ -250,6 +278,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(ALLOWED_PHASE_DICT),
         options_dict=ALLOWED_PHASE_DICT,
         api_param="2189_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="ps_installation_direct_external_suspend_signal",
@@ -258,6 +287,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(DIRECT_EXTERNAL_SUSPEND_SIGNAL),
         options_dict=DIRECT_EXTERNAL_SUSPEND_SIGNAL,
         api_param="216C_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="ps_socket_type_socket_1",
@@ -266,6 +296,7 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(SOCKET_TYPE_DICT),
         options_dict=SOCKET_TYPE_DICT,
         api_param="2125_0",
+        read_only=False,
     ),
     AlfenSelectDescription(
         key="ev_disconnect_action",
@@ -274,6 +305,16 @@ ALFEN_SELECT_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(CAR_DISCONNECT_ACTION_DICT),
         options_dict=CAR_DISCONNECT_ACTION_DICT,
         api_param="2137_0",
+        read_only=False,
+    ),
+    AlfenSelectDescription(
+        key="wifi_security",
+        name="WiFi Security",
+        icon="mdi:wifi",
+        options=list(WIFI_SECURITY_MODE_DICT),
+        options_dict=WIFI_SECURITY_MODE_DICT,
+        api_param="328C_0",
+        read_only=False,
     ),
 )
 
@@ -285,6 +326,7 @@ ALFEN_SELECT_DUAL_SOCKET_TYPES: Final[tuple[AlfenSelectDescription, ...]] = (
         options=list(SOCKET_TYPE_DICT),
         options_dict=SOCKET_TYPE_DICT,
         api_param="3125_0",
+        read_only=False,
     ),
 )
 
@@ -303,7 +345,8 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     if coordinator.device.get_number_of_sockets() == 2:
         numbers = [
-            AlfenSelect(entry, description) for description in ALFEN_SELECT_DUAL_SOCKET_TYPES
+            AlfenSelect(entry, description)
+            for description in ALFEN_SELECT_DUAL_SOCKET_TYPES
         ]
         async_add_entities(numbers)
 
@@ -336,22 +379,29 @@ class AlfenSelect(AlfenEntity, SelectEntity):
     values_dict: dict[int | str, str]
     entity_description: AlfenSelectDescription
 
-    def __init__(self, entry: AlfenConfigEntry, description: AlfenSelectDescription) -> None:
+    def __init__(
+        self, entry: AlfenConfigEntry, description: AlfenSelectDescription
+    ) -> None:
         """Initialize."""
         super().__init__(entry)
         self._attr_name = f"{self.coordinator.device.name} {description.name}"
 
         self._attr_unique_id = f"{self.coordinator.device.id}_{description.key}"
-        self._attr_options = description.options if description.options is not None else []
+        self._attr_options = (
+            description.options if description.options is not None else []
+        )
         self.entity_description = description
         self.values_dict = {v: k for k, v in description.options_dict.items()}
         self._async_update_attrs()
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
-        value = self.entity_description.options_dict[option]
-        await self.coordinator.device.set_value(self.entity_description.api_param, value)
-        self.async_write_ha_state()
+        if not self.entity_description.read_only:
+            value = self.entity_description.options_dict[option]
+            await self.coordinator.device.set_value(
+                self.entity_description.api_param, value
+            )
+            self.async_write_ha_state()
 
     @property
     def current_option(self) -> str | None:
@@ -364,9 +414,9 @@ class AlfenSelect(AlfenEntity, SelectEntity):
         """Return the default attributes of the element."""
         if self.entity_description.api_param in self.coordinator.device.properties:
             return {
-                "category": self.coordinator.device.properties[self.entity_description.api_param][
-                    CAT
-                ]
+                "category": self.coordinator.device.properties[
+                    self.entity_description.api_param
+                ][CAT]
             }
         return None
 

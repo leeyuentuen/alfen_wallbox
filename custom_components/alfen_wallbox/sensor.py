@@ -291,6 +291,13 @@ MODBUS_CONNECTION_STATES_DICT: Final[dict[int, str]] = {
     4: "Error",
 }
 
+WIFI_STATUS_DICT: Final[dict[int, str]] = {
+    0: "Not Initialized",
+    1: "Not Configured",
+    2: "Not Connected",
+    3: "Connected",
+}
+
 ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
     AlfenSensorDescription(
         key="status_socket_1",
@@ -302,7 +309,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
     ),
     AlfenSensorDescription(
         key="uptime",
-        name="Uptime",
+        name="System Uptime",
         icon="mdi:timer-outline",
         api_param="2060_0",
         unit=UnitOfTime.MILLISECONDS,
@@ -329,7 +336,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
     ),
     AlfenSensorDescription(
         key="bootups",
-        name="Bootups",
+        name="Number of bootups",
         icon="mdi:reload",
         api_param="2056_0",
         unit=None,
@@ -525,7 +532,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
     ),
     AlfenSensorDescription(
         key="charging_box_identifier",
-        name="Charging Box Identifier",
+        name="Customer Ident. number",
         icon="mdi:ev-station",
         api_param="2053_0",
         unit=None,
@@ -533,7 +540,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
     ),
     AlfenSensorDescription(
         key="boot_reason",
-        name="System Boot Reason",
+        name="Boot Reason",
         icon="mdi:reload",
         api_param="2057_0",
         unit=None,
@@ -570,38 +577,6 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         device_class=SensorDeviceClass.CURRENT,
     ),
     AlfenSensorDescription(
-        key="gprs_apn_name",
-        name="GPRS APN Name",
-        icon="mdi:antenna",
-        api_param="2100_0",
-        unit=None,
-        round_digits=None,
-    ),
-    AlfenSensorDescription(
-        key="gprs_apn_user",
-        name="GPRS APN User",
-        icon="mdi:antenna",
-        api_param="2101_0",
-        unit=None,
-        round_digits=None,
-    ),
-    AlfenSensorDescription(
-        key="gprs_apn_password",
-        name="GPRS APN Password",
-        icon="mdi:antenna",
-        api_param="2102_0",
-        unit=None,
-        round_digits=None,
-    ),
-    AlfenSensorDescription(
-        key="gprs_sim_pin",
-        name="GPRS SIM Pin",
-        icon="mdi:antenna",
-        api_param="2103_0",
-        unit=None,
-        round_digits=None,
-    ),
-    AlfenSensorDescription(
         key="gprs_sim_imsi",
         name="GPRS SIM IMSI",
         icon="mdi:antenna",
@@ -622,22 +597,6 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         name="GPRS Provider",
         icon="mdi:antenna",
         api_param="2112_0",
-        unit=None,
-        round_digits=None,
-    ),
-    AlfenSensorDescription(
-        key="comm_bo_url_wired_server_domain_and_port",
-        name="Wired Url Server Domain And Port",
-        icon="mdi:cable-data",
-        api_param="2071_1",
-        unit=None,
-        round_digits=None,
-    ),
-    AlfenSensorDescription(
-        key="comm_bo_url_wired_server_path",
-        name="Wired Url Wired Server Path",
-        icon="mdi:cable-data",
-        api_param="2071_2",
         unit=None,
         round_digits=None,
     ),
@@ -678,22 +637,6 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         name="Backoffice Short Name",
         icon="mdi:antenna",
         api_param="2076_0",
-        unit=None,
-        round_digits=None,
-    ),
-    AlfenSensorDescription(
-        key="comm_bo_url_gprs_server_domain_and_port",
-        name="GPRS Url Server Domain And Port",
-        icon="mdi:antenna",
-        api_param="2078_1",
-        unit=None,
-        round_digits=None,
-    ),
-    AlfenSensorDescription(
-        key="comm_bo_url_gprs_server_path",
-        name="GPRS Url Server Path",
-        icon="mdi:antenna",
-        api_param="2078_2",
         unit=None,
         round_digits=None,
     ),
@@ -782,31 +725,31 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
     ),
     AlfenSensorDescription(
         key="comm_wired_mac",
-        name="Wired MAC address",
+        name="Ethernet MAC address",
         icon="mdi:cable-data",
         api_param="2052_1",
         unit=None,
         round_digits=None,
     ),
     AlfenSensorDescription(
-        key="comm_protocol_name",
-        name="Protocol Name",
+        key="Protocol Version",
+        name="Protocol Version",
         icon="mdi:information-outline",
-        api_param="2081_0",
+        api_param="2005_0",
         unit=None,
         round_digits=None,
     ),
     AlfenSensorDescription(
-        key="comm_protocol_version",
-        name="Protocol Version",
+        key="model",
+        name="Model",
         icon="mdi:information-outline",
-        api_param="2082_0",
+        api_param="2050_0",
         unit=None,
         round_digits=None,
     ),
     AlfenSensorDescription(
         key="object_id",
-        name="Charger Number",
+        name="Object Number",
         icon="mdi:information-outline",
         api_param="2051_0",
         unit=None,
@@ -1021,6 +964,46 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.VOLTAGE,
     ),
+    AlfenSensorDescription(
+        key="smart_meter_power_real_l1",
+        name="Smart Meter Real Power L1",
+        icon="mdi:counter",
+        api_param="3221_13",
+        unit=UnitOfPower.KILO_WATT,
+        round_digits=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+    ),
+    AlfenSensorDescription(
+        key="smart_meter_power_real_l2",
+        name="Smart Meter Real Power L2",
+        icon="mdi:counter",
+        api_param="3221_14",
+        unit=UnitOfPower.KILO_WATT,
+        round_digits=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+    ),
+    AlfenSensorDescription(
+        key="smart_meter_power_real_l3",
+        name="Smart Meter Real Power L3",
+        icon="mdi:counter",
+        api_param="3221_15",
+        unit=UnitOfPower.KILO_WATT,
+        round_digits=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+    ),
+    AlfenSensorDescription(
+        key="smart_meter_power_real_sum",
+        name="Smart Meter Real Power Sum",
+        icon="mdi:counter",
+        api_param="3221_16",
+        unit=UnitOfPower.KILO_WATT,
+        round_digits=None,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+    ),
     # AlfenSensorDescription(
     #     key="smart_meter_voltage_l1L2",
     #     name="Smart Meter Voltage L1L2",
@@ -1103,7 +1086,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
     ),
     AlfenSensorDescription(
         key="number_of_socket",
-        name="Number of Socket",
+        name="Number of Sockets",
         icon="mdi:information-outline",
         unit=None,
         api_param="205E_0",
@@ -1176,6 +1159,14 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         device_class=SensorDeviceClass.DURATION,
     ),
     AlfenSensorDescription(
+        key="platform_type",
+        name="Platform Type",
+        icon="mdi:information-outline",
+        api_param="1008_0",
+        unit=None,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
         key="manufacturer_hardware_version",
         name="Manufacturer Hardware Version",
         icon="mdi:information-outline",
@@ -1185,7 +1176,7 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
     ),
     AlfenSensorDescription(
         key="manufacturer_software_version",
-        name="Manufacturer software Version",
+        name="Manufacturer Software Version",
         icon="mdi:information-outline",
         api_param="100A_0",
         unit=None,
@@ -1196,6 +1187,14 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         name="Firmware Version",
         icon="mdi:information-outline",
         api_param="2054_0",
+        unit=None,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="charge_point_vendor",
+        name="Charge Point Vendor",
+        icon="mdi:information-outline",
+        api_param="2055_0",
         unit=None,
         round_digits=None,
     ),
@@ -1249,6 +1248,70 @@ ALFEN_SENSOR_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         state_class=None,
         unit=None,
         round_digits=0,
+    ),
+    AlfenSensorDescription(
+        key="socket1.2_max_current",
+        name="Socket 1.2 Max Current",
+        icon="mdi:current-ac",
+        api_param="2173_0",
+        unit=UnitOfElectricCurrent.AMPERE,
+        round_digits=2,
+    ),
+    AlfenSensorDescription(
+        key="wifi_netmask",
+        name="WiFi Netmask",
+        icon="mdi:wifi",
+        api_param="3286_1",
+        unit=None,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="wifi_gateway",
+        name="WiFi Gateway Address",
+        icon="mdi:wifi",
+        api_param="3287_1",
+        unit=None,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="wifi_ip_address",
+        name="WiFi IP Address",
+        icon="mdi:wifi",
+        api_param="3285_1",
+        unit=None,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="wifi_dns_1",
+        name="WiFi DNS 1",
+        icon="mdi:wifi",
+        api_param="3288_1",
+        unit=None,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="wifi_dns_2",
+        name="WiFi DNS 2",
+        icon="mdi:wifi",
+        api_param="3289_1",
+        unit=None,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="wifi_rssi",
+        name="WiFi RSSI",
+        icon="mdi:wifi",
+        api_param="328D_0",
+        unit=None,
+        round_digits=None,
+    ),
+    AlfenSensorDescription(
+        key="wifi_status",
+        name="WiFi Status",
+        icon="mdi:wifi",
+        api_param="3293_0",
+        unit=None,
+        round_digits=None,
     ),
 )
 
@@ -1590,6 +1653,14 @@ ALFEN_SENSOR_DUAL_SOCKET_TYPES: Final[tuple[AlfenSensorDescription, ...]] = (
         round_digits=0,
         device_class=SensorDeviceClass.DURATION,
     ),
+    AlfenSensorDescription(
+        key="socket2.2_max_current",
+        name="Socket 2.2 Max Current",
+        icon="mdi:current-ac",
+        api_param="3173_0",
+        unit=UnitOfElectricCurrent.AMPERE,
+        round_digits=2,
+    ),
 )
 
 
@@ -1616,7 +1687,8 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     if coordinator.device.get_number_of_sockets() == 2:
         sensors = [
-            AlfenSensor(entry, description) for description in ALFEN_SENSOR_DUAL_SOCKET_TYPES
+            AlfenSensor(entry, description)
+            for description in ALFEN_SENSOR_DUAL_SOCKET_TYPES
         ]
         async_add_entities(sensors)
 
@@ -1634,7 +1706,9 @@ class AlfenMainSensor(AlfenEntity):
 
     entity_description: AlfenSensorDescription
 
-    def __init__(self, entry: AlfenConfigEntry, description: AlfenSensorDescription) -> None:
+    def __init__(
+        self, entry: AlfenConfigEntry, description: AlfenSensorDescription
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(entry)
 
@@ -1703,7 +1777,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
 
     entity_description: AlfenSensorDescription
 
-    def __init__(self, entry: AlfenConfigEntry, description: AlfenSensorDescription) -> None:
+    def __init__(
+        self, entry: AlfenConfigEntry, description: AlfenSensorDescription
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(entry)
 
@@ -1722,7 +1798,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
     def _get_current_value(self) -> StateType | None:
         """Get the current value."""
         if self.entity_description.api_param in self.coordinator.device.properties:
-            return self.coordinator.device.properties[self.entity_description.api_param][VALUE]
+            return self.coordinator.device.properties[
+                self.entity_description.api_param
+            ][VALUE]
         return None
 
     @callback
@@ -1745,7 +1823,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         """Return the icon of the sensor."""
         return self.entity_description.icon
 
-    def _processTransactionKWh(self, socket: str, entity_description: AlfenSensorDescription):
+    def _processTransactionKWh(
+        self, socket: str, entity_description: AlfenSensorDescription
+    ):
         if self.coordinator.device.latest_tag is None:
             return None
         ## calculate the usage
@@ -1809,7 +1889,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             return value
         return None
 
-    def _processTransactionTime(self, socket: str, entity_description: AlfenSensorDescription):
+    def _processTransactionTime(
+        self, socket: str, entity_description: AlfenSensorDescription
+    ):
         if self.coordinator.device.latest_tag is None:
             return None
 
@@ -1856,14 +1938,18 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             and mvDate is not None
             and entity_description.key == "custom_transaction_socket_1_charging_time"
         ):
-            return self._getChargingTime(startDate, mvDate, stopDate, entity_description)
+            return self._getChargingTime(
+                startDate, mvDate, stopDate, entity_description
+            )
 
         if (
             startDate2 is not None
             and mvDate2 is not None
             and entity_description.key == "custom_transaction_socket_2_charging_time"
         ):
-            return self._getChargingTime(startDate2, mvDate2, stopDate2, entity_description)
+            return self._getChargingTime(
+                startDate2, mvDate2, stopDate2, entity_description
+            )
 
         if (
             lastDate is not None
@@ -1885,7 +1971,11 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             if self.coordinator.device.latest_tag is None:
                 return "No Tag"
             for key, value in self.coordinator.device.latest_tag.items():
-                if key[0] == f"socket {socker_number}" and key[1] == "start" and key[2] == "tag":
+                if (
+                    key[0] == f"socket {socker_number}"
+                    and key[1] == "start"
+                    and key[2] == "tag"
+                ):
                     return value
             return "No Tag"
 
@@ -1893,7 +1983,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
             f"custom_transaction_socket_{socker_number}_charging",
             f"custom_transaction_socket_{socker_number}_charged",
         ):
-            value = self._processTransactionKWh(f"socket {socker_number}", self.entity_description)
+            value = self._processTransactionKWh(
+                f"socket {socker_number}", self.entity_description
+            )
             if value is not None:
                 return value
 
@@ -1919,7 +2011,11 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         if entity_description.round_digits is not None:
             return round(
                 value,
-                (entity_description.round_digits if entity_description.round_digits > 0 else None),
+                (
+                    entity_description.round_digits
+                    if entity_description.round_digits > 0
+                    else None
+                ),
             )
         return value
 
@@ -1938,7 +2034,11 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         if entity_description.round_digits is not None:
             return round(
                 value,
-                (entity_description.round_digits if entity_description.round_digits > 0 else None),
+                (
+                    entity_description.round_digits
+                    if entity_description.round_digits > 0
+                    else None
+                ),
             )
         return value
 
@@ -2035,7 +2135,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
 
             if self.entity_description.key == "system_date_time":
                 # 1. Convert wallbox timestamp (ms) to a UTC datetime object
-                wallbox_time = datetime.datetime.fromtimestamp(prop[VALUE] / 1000, tz=datetime.UTC)
+                wallbox_time = datetime.datetime.fromtimestamp(
+                    prop[VALUE] / 1000, tz=datetime.UTC
+                )
 
                 # 2. Calculate the difference from the current time
                 diff = datetime.datetime.now(datetime.UTC) - wallbox_time
@@ -2057,7 +2159,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 "3600_7",
                 "3600_8",
             ):
-                return datetime.datetime.fromtimestamp(prop[VALUE] / 1000).strftime("%H:%M:%S")
+                return datetime.datetime.fromtimestamp(prop[VALUE] / 1000).strftime(
+                    "%H:%M:%S"
+                )
 
             # Allowed phase 1 or Allowed Phase 2
             if self.entity_description.api_param in ("312E_0", "312F_0"):
@@ -2089,7 +2193,14 @@ class AlfenSensor(AlfenEntity, SensorEntity):
 
             # wallbox display message
             if self.entity_description.api_param in ("3190_2", "3191_2"):
-                return str(prop[VALUE]) + ": " + DISPLAY_ERROR_DICT.get(prop[VALUE], "Unknown")
+                return (
+                    str(prop[VALUE])
+                    + ": "
+                    + DISPLAY_ERROR_DICT.get(prop[VALUE], "Unknown")
+                )
+
+            if self.entity_description.api_param == "3293_0":
+                return WIFI_STATUS_DICT.get(prop[VALUE], "Unknown")
 
             # Status code
             if self.entity_description.api_param in ("2501_2", "2502_2"):
@@ -2103,9 +2214,9 @@ class AlfenSensor(AlfenEntity, SensorEntity):
         """Return the default attributes of the element."""
         if self.entity_description.api_param in self.coordinator.device.properties:
             return {
-                "category": self.coordinator.device.properties[self.entity_description.api_param][
-                    CAT
-                ]
+                "category": self.coordinator.device.properties[
+                    self.entity_description.api_param
+                ][CAT]
             }
         return None
 

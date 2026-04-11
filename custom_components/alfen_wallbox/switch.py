@@ -76,6 +76,21 @@ ALFEN_SWITCH_TYPES: Final[tuple[AlfenSwitchDescription, ...]] = (
         name="Active Load Balancing",
         api_param="2064_0",
     ),
+    AlfenSwitchDescription(
+        key="wifi_enabled",
+        name="WiFi Enabled",
+        api_param="3284_0",
+    ),
+    AlfenSwitchDescription(
+        key="wifi_ap_start_on_boot",
+        name="WiFi AP Start on Boot",
+        api_param="3291_0",
+    ),
+    AlfenSwitchDescription(
+        key="wifi_ap_enabled",
+        name="WiFi AP Enabled",
+        api_param="3292_0",
+    ),
 )
 
 

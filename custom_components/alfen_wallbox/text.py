@@ -62,6 +62,20 @@ ALFEN_TEXT_TYPES: Final[tuple[AlfenTextDescription, ...]] = (
         mode=TextMode.TEXT,
         api_param="3262_7",
     ),
+    AlfenTextDescription(
+        key="wifi_ssid",
+        name="WiFi SSID",
+        icon="mdi:tag-text-outline",
+        mode=TextMode.TEXT,
+        api_param="328A_0",
+    ),
+    AlfenTextDescription(
+        key="wifi_password",
+        name="WiFi Password",
+        icon="mdi:tag-text-outline",
+        mode=TextMode.PASSWORD,
+        api_param="328B_0",
+    ),
 )
 
 

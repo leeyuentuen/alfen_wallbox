@@ -40,7 +40,9 @@ class AlfenBinaryDescriptionMixin:
 
 
 @dataclass(frozen=True)
-class AlfenBinaryDescription(BinarySensorEntityDescription, AlfenBinaryDescriptionMixin):
+class AlfenBinaryDescription(
+    BinarySensorEntityDescription, AlfenBinaryDescriptionMixin
+):
     """Class to describe an Alfen binary sensor entity."""
 
 
@@ -125,7 +127,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up Alfen binary sensor entities from a config entry."""
 
-    binaries = [AlfenBinarySensor(entry, description) for description in ALFEN_BINARY_SENSOR_TYPES]
+    binaries = [
+        AlfenBinarySensor(entry, description)
+        for description in ALFEN_BINARY_SENSOR_TYPES
+    ]
 
     async_add_entities(binaries)
 
@@ -135,7 +140,9 @@ class AlfenBinarySensor(AlfenEntity, BinarySensorEntity):
 
     entity_description: AlfenBinaryDescription
 
-    def __init__(self, entry: AlfenConfigEntry, description: AlfenBinaryDescription) -> None:
+    def __init__(
+        self, entry: AlfenConfigEntry, description: AlfenBinaryDescription
+    ) -> None:
         """Initialize."""
         super().__init__(entry)
         self._attr_name = f"{self.coordinator.device.name} {description.name}"
@@ -185,7 +192,9 @@ class AlfenBinarySensor(AlfenEntity, BinarySensorEntity):
         """Return True if entity is available."""
 
         if self.entity_description.api_param is not None:
-            return self.entity_description.api_param in self.coordinator.device.properties
+            return (
+                self.entity_description.api_param in self.coordinator.device.properties
+            )
 
         return True
 
@@ -195,7 +204,9 @@ class AlfenBinarySensor(AlfenEntity, BinarySensorEntity):
 
         if self.entity_description.api_param is not None:
             if self.entity_description.api_param in self.coordinator.device.properties:
-                prop = self.coordinator.device.properties[self.entity_description.api_param]
+                prop = self.coordinator.device.properties[
+                    self.entity_description.api_param
+                ]
                 return prop[VALUE] == 1
             return False
 
@@ -209,9 +220,9 @@ class AlfenBinarySensor(AlfenEntity, BinarySensorEntity):
         """Return the default attributes of the element."""
         if self.entity_description.api_param in self.coordinator.device.properties:
             return {
-                "category": self.coordinator.device.properties[self.entity_description.api_param][
-                    CAT
-                ],
+                "category": self.coordinator.device.properties[
+                    self.entity_description.api_param
+                ][CAT],
             }
 
         if self.entity_description.key == "https_api_login_status":
