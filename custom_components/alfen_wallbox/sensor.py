@@ -2168,7 +2168,10 @@ class AlfenSensor(AlfenEntity, SensorEntity):
                 return ALLOWED_PHASE_DICT.get(prop[VALUE], "Unknown")
 
             if self.entity_description.round_digits is not None:
-                # check prop[VALUE] if it is an integer
+                # Wallbox can report a property with a null value (e.g. no car
+                # connected) - guard against that before rounding.
+                if prop[VALUE] is None:
+                    return None
                 return round(prop[VALUE], self.entity_description.round_digits)
 
             # mode3_state
