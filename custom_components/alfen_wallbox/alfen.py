@@ -109,6 +109,8 @@ class AlfenDevice:
         self.get_static_properties = True
         # Start logged out - proactive login will authenticate before first request
         self.logged_in = False
+        # JWT access token from the login response (needed on firmware with token auth)
+        self._access_token: str | None = None
         # Delay between category fetches to spread API load (configurable, 0-5 seconds)
         self.category_fetch_delay = category_fetch_delay
         self.last_updated: datetime.datetime | None = None
@@ -164,7 +166,9 @@ class AlfenDevice:
 
     async def get_info(self) -> bool:
         """Get info from the API."""
-        response = await self._session.get(url=self.__get_url(INFO), ssl=self.ssl)
+        response = await self._session.get(
+            url=self.__get_url(INFO), headers=self._auth_headers(), ssl=self.ssl
+        )
         _LOGGER.debug("[%s] Response %s", self.log_id, str(response))
 
         if response.status == 200:
@@ -550,7 +554,7 @@ class AlfenDevice:
                 async with self._session.post(
                     url=self.__get_url(cmd),
                     json=payload,
-                    headers=POST_HEADER_JSON,
+                    headers=self._auth_headers(POST_HEADER_JSON),
                     timeout=ClientTimeout(total=DEFAULT_TIMEOUT),
                     ssl=self.ssl,
                 ) as response:
@@ -647,7 +651,10 @@ class AlfenDevice:
                     )
 
                 async with self._session.get(
-                    url, timeout=ClientTimeout(total=DEFAULT_TIMEOUT), ssl=self.ssl
+                    url,
+                    headers=self._auth_headers(),
+                    timeout=ClientTimeout(total=DEFAULT_TIMEOUT),
+                    ssl=self.ssl,
                 ) as response:
                     if response.status == 401 and allowed_login:
                         self.logged_in = False
@@ -819,6 +826,13 @@ class AlfenDevice:
 
         return True
 
+    def _auth_headers(self, base: dict[str, str] | None = None) -> dict[str, str]:
+        """Build request headers, adding the Bearer token if we have one."""
+        headers = dict(base) if base else {}
+        if self._access_token:
+            headers["Authorization"] = f"Bearer {self._access_token}"
+        return headers
+
     async def login(self):
         """Login to the API."""
         self.keep_logout = False
@@ -910,6 +924,11 @@ class AlfenDevice:
                 )
             else:
                 _LOGGER.debug("[%s] Login successful: %s", self.log_id, response)
+                if isinstance(response, dict) and "access" in response:
+                    self._access_token = response["access"]
+                    _LOGGER.debug(
+                        "[%s] Stored JWT access token from login response", self.log_id
+                    )
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.error(
                 "[%s] Unexpected error on LOGIN: %s",
@@ -927,6 +946,7 @@ class AlfenDevice:
         try:
             response = await self._post(cmd=LOGOUT, allowed_login=False)
             self.logged_in = False
+            self._access_token = None
             self.last_updated = datetime.datetime.now()
 
             if response is None:
@@ -965,7 +985,7 @@ class AlfenDevice:
                 async with self._session.post(
                     url=self.__get_url(PROP),
                     json={api_param: {ID: api_param, VALUE: str(value)}},
-                    headers=POST_HEADER_JSON,
+                    headers=self._auth_headers(POST_HEADER_JSON),
                     timeout=ClientTimeout(total=DEFAULT_TIMEOUT),
                     ssl=self.ssl,
                 ) as response:
