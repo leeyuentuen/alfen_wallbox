@@ -19,6 +19,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 import voluptuous as vol
 
 from .const import (
@@ -102,11 +103,39 @@ class AlfenFlowHandler(ConfigFlow, domain=DOMAIN):
     VERSION = 2
     CONNECTION_CLASS = CONN_CLASS_LOCAL_POLL
 
+    _discovered_host: str | None = None
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> AlfenOptionsFlowHandler:
         """Options callback for Reolink."""
         return AlfenOptionsFlowHandler()
+
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
+        """Handle zeroconf discovery."""
+        host = discovery_info.host
+        hostname = discovery_info.hostname.rstrip(".")
+        device_name = hostname.removesuffix(".local")
+        unique_id = device_name.lower()
+
+        await self.async_set_unique_id(unique_id)
+        self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+
+        for entry in self._async_current_entries(include_ignore=False):
+            if entry.unique_id is not None:
+                continue
+
+            if entry.data.get(CONF_HOST) == host:
+                self.hass.config_entries.async_update_entry(
+                    entry,
+                    unique_id=unique_id,
+                )
+                return self.async_abort(reason="already_configured")
+
+        self._discovered_host = host
+        self.context["title_placeholders"] = {"name": device_name}
+
+        return await self.async_step_user()
 
     async def async_step_user(self, user_input=None):
         """User initiated config flow."""
@@ -115,11 +144,19 @@ class AlfenFlowHandler(ConfigFlow, domain=DOMAIN):
             if result is not None:
                 return result
 
+        if self._discovered_host is not None:
+            host_field = vol.Required(
+                CONF_HOST,
+                default=self._discovered_host,
+            )
+        else:
+            host_field = vol.Required(CONF_HOST)
+
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_HOST): str,
+                    host_field: str,
                     vol.Required(CONF_USERNAME, default="admin"): str,
                     vol.Required(CONF_PASSWORD): str,
                     vol.Required(CONF_NAME): str,
