@@ -19,7 +19,13 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+
+try:
+    from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+except ImportError:
+    # Fallback for older HA versions: https://developers.home-assistant.io/blog/2025/01/15/service-info/
+    from homeassistant.components.zeroconf import ZeroconfServiceInfo
+
 import voluptuous as vol
 
 from .const import (

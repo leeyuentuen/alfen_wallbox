@@ -13,7 +13,13 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+
+try:
+    from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+except ImportError:
+    # Fallback for older HA versions: https://developers.home-assistant.io/blog/2025/01/15/service-info/
+    from homeassistant.components.zeroconf import ZeroconfServiceInfo
+
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.alfen_wallbox.const import (
