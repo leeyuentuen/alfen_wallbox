@@ -7,6 +7,7 @@ import pytest
 from custom_components.alfen_wallbox.const import DOMAIN, ID, VALUE
 from custom_components.alfen_wallbox.sensor import (
     ALFEN_SENSOR_TYPES,
+    DISPLAY_ERROR_DICT,
     AlfenMainSensor,
     AlfenSensor,
     async_setup_entry,
@@ -210,9 +211,66 @@ async def test_sensor_display_state_error(mock_entry, mock_coordinator):
     display_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "ui_state_1")
     entity = AlfenSensor(mock_entry, display_desc)
 
-    value = entity.native_value
+    # The wallbox reports state 28 while switching states; without an error
+    # number that is not an error
+    assert entity.native_value == "No Error"
 
-    assert value == "See error Number"
+    # With an error number the error is reported, including its description
+    mock_coordinator.device.properties["3190_2"] = {
+        ID: "3190_2",
+        VALUE: 303,
+        "cat": "display",
+    }
+
+    assert entity.native_value == f"See error Number: {DISPLAY_ERROR_DICT[303]}"
+
+
+async def test_sensor_display_state_generic_error(mock_entry, mock_coordinator):
+    """Test the generic error display state (27) without an error number.
+
+    The wallbox alternates between its "Error" (27) and "Error Message" (28)
+    screens while it switches between states, so 27 has to consult the error
+    number just like 28.
+    """
+    mock_coordinator.device.properties["3190_1"] = {
+        ID: "3190_1",
+        VALUE: 27,
+        "cat": "display",
+    }
+
+    display_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "ui_state_1")
+    entity = AlfenSensor(mock_entry, display_desc)
+
+    # Without an error number there is no error to report
+    assert entity.native_value == "No Error"
+
+    # With an error number the error is reported, including its description
+    mock_coordinator.device.properties["3190_2"] = {
+        ID: "3190_2",
+        VALUE: 303,
+        "cat": "display",
+    }
+
+    assert entity.native_value == f"See error Number: {DISPLAY_ERROR_DICT[303]}"
+
+
+async def test_sensor_display_state_error_unknown_number(mock_entry, mock_coordinator):
+    """Test display state with an error number without a description."""
+    mock_coordinator.device.properties["3190_1"] = {
+        ID: "3190_1",
+        VALUE: 28,
+        "cat": "display",
+    }
+    mock_coordinator.device.properties["3190_2"] = {
+        ID: "3190_2",
+        VALUE: 999,
+        "cat": "display",
+    }
+
+    display_desc = next(d for d in ALFEN_SENSOR_TYPES if d.key == "ui_state_1")
+    entity = AlfenSensor(mock_entry, display_desc)
+
+    assert entity.native_value == "See error Number: Unknown error 999"
 
 
 async def test_sensor_display_error_number(mock_entry, mock_coordinator):
