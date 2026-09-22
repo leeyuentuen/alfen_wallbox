@@ -116,6 +116,18 @@ To manage this, the integration includes two buttons: HTTPS API Login and HTTPS 
 
 The HTTPS API Login Status binary sensor shows the current state of the login session.
 
+## Tag and Transaction Sensors
+The tag and transaction sensors (`sensor.<device>_tag_socket_1` and the
+`sensor.<device>_transaction_socket_1_*` sensors) are built from the `logs` and
+`transactions` categories of the wallbox. Those categories are **not refreshed by
+default**, to limit the load on the wallbox API, so those sensors keep reporting
+`No Tag` and `unknown` until they are selected.
+
+To enable them, open the integration options (Configure) and add `logs` and
+`transactions` to the refresh categories, then press the *Force fetch transaction*
+button or wait for the next scheduled fetch (every 20 and 60 update cycles). The
+integration logs a warning on setup while those categories are missing.
+
 ## Services
 Example of running in Services:
 Note; The name of the configured charging point is "wallbox" in these examples.

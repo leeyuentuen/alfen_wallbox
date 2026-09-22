@@ -16,6 +16,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
+    CAT_LOGS,
+    CAT_TRANSACTIONS,
     CONF_REFRESH_CATEGORIES,
     DEFAULT_REFRESH_CATEGORIES,
     DEFAULT_SCAN_INTERVAL,
@@ -81,7 +83,35 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: AlfenConfigEntry)
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
 
     config_entry.async_on_unload(config_entry.add_update_listener(options_update_listener))
+
+    _warn_about_missing_transaction_categories(config_entry)
     return True
+
+
+@callback
+def _warn_about_missing_transaction_categories(
+    config_entry: AlfenConfigEntry,
+) -> None:
+    """Explain why the tag and transaction sensors stay empty.
+
+    Those sensors are built from the wallbox log and transaction categories,
+    which are not refreshed by default. Without them the sensors keep reporting
+    "No Tag" and "unknown" without saying why.
+    """
+    categories = config_entry.options.get(CONF_REFRESH_CATEGORIES, [])
+    missing = [
+        category for category in (CAT_LOGS, CAT_TRANSACTIONS) if category not in categories
+    ]
+    if not missing:
+        return
+
+    _LOGGER.warning(
+        "[%s] The %s categories are not refreshed, so the tag and transaction sensors "
+        "of this integration stay empty (No Tag / unknown). Add them to the refresh "
+        "categories in the integration options to enable those sensors",
+        config_entry.title,
+        ", ".join(missing),
+    )
 
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: AlfenConfigEntry) -> bool:
