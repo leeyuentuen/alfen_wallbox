@@ -70,6 +70,10 @@ LOG_TRANSACTION_FETCH_TIMEOUT = 10  # seconds
 LOG_FETCH_INTERVAL = 20
 TRANSACTION_FETCH_INTERVAL = 60
 
+# How many cycles in a row a fetch that did not finish may be retried before it
+# falls back to its normal interval
+MAX_HISTORY_FETCH_RETRIES = 5
+
 # Valid characters for API parameter IDs (alphanumeric, underscore, hyphen)
 API_PARAM_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -115,6 +119,7 @@ class AlfenDevice:
         # until the 20th/60th cycle has passed.
         self.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
         self.log_counter = LOG_FETCH_INTERVAL - 1
+        self.history_fetch_retries = 0
         self.category_rotation_index = 0
         self.ssl = ssl
         self.static_properties: list[dict[str, Any]] = []
@@ -505,6 +510,18 @@ class AlfenDevice:
                 self.log_id,
                 LOG_TRANSACTION_FETCH_TIMEOUT,
             )
+            # Retry on the following cycles instead of waiting for the whole
+            # interval again, so a history that does not fit in one cycle is
+            # fetched in parts. Give up after a few attempts to avoid fetching
+            # part of the history on every single cycle.
+            self.history_fetch_retries += 1
+            if self.history_fetch_retries <= MAX_HISTORY_FETCH_RETRIES:
+                if logs_due:
+                    self.log_counter = LOG_FETCH_INTERVAL - 1
+                if transactions_due:
+                    self.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
+        else:
+            self.history_fetch_retries = 0
 
     async def async_update(self) -> bool:
         """Update the device properties.

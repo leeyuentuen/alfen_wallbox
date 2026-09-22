@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.alfen_wallbox.alfen import AlfenDevice
+from custom_components.alfen_wallbox.alfen import (
+    MAX_HISTORY_FETCH_RETRIES,
+    TRANSACTION_FETCH_INTERVAL,
+    AlfenDevice,
+)
 from custom_components.alfen_wallbox.const import ID, PROPERTIES, TOTAL, VALUE
 
 
@@ -296,6 +300,44 @@ async def test_slow_transaction_fetch_is_bounded(alfen_device: AlfenDevice, capl
         await alfen_device._fetch_logs_and_transactions()
 
     assert "did not finish within" in caplog.text
+
+
+async def test_unfinished_fetch_is_retried_on_the_next_cycle(
+    alfen_device: AlfenDevice, caplog
+):
+    """Test that a fetch which did not finish is retried soon.
+
+    Otherwise a history that does not fit in one cycle leaves the tag and
+    transaction sensors empty until the whole interval has passed again.
+    """
+    alfen_device.category_options = ["transactions"]
+    alfen_device.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
+
+    async def slow_fetch() -> None:
+        await asyncio.sleep(5)
+
+    with (
+        patch.object(alfen_device, "_get_transaction", new=slow_fetch),
+        patch("custom_components.alfen_wallbox.alfen.LOG_TRANSACTION_FETCH_TIMEOUT", 0.01),
+        caplog.at_level("WARNING"),
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    # The transaction fetch is due again on the next cycle
+    assert alfen_device.transaction_counter == TRANSACTION_FETCH_INTERVAL - 1
+    assert alfen_device.history_fetch_retries == 1
+
+    # ... but not forever: after MAX_HISTORY_FETCH_RETRIES the normal schedule
+    # takes over again
+    alfen_device.history_fetch_retries = MAX_HISTORY_FETCH_RETRIES
+    with (
+        patch.object(alfen_device, "_get_transaction", new=slow_fetch),
+        patch("custom_components.alfen_wallbox.alfen.LOG_TRANSACTION_FETCH_TIMEOUT", 0.01),
+        caplog.at_level("WARNING"),
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    assert alfen_device.transaction_counter == 0
 
 
 async def test_transaction_fetch_skipped_when_not_due(alfen_device: AlfenDevice):
