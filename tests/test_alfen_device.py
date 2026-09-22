@@ -111,7 +111,9 @@ async def test_login(alfen_device: AlfenDevice):
         assert alfen_device.keep_logout is False
 
 
-async def test_successful_login_does_not_count_towards_rate_limit(alfen_device: AlfenDevice):
+async def test_successful_login_does_not_count_towards_rate_limit(
+    alfen_device: AlfenDevice,
+):
     """Test that re-logging in does not exhaust the login rate limit.
 
     The wallbox closes the session after a value update, so logging in again is
@@ -244,10 +246,12 @@ async def test_async_update_removes_rejected_updates(alfen_device: AlfenDevice, 
     # Mock a permanent rejection (False means: the wallbox refused the value)
     with (
         patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=False)),
-        patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])),
+        patch.object(
+            alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])
+        ),
+        caplog.at_level("ERROR"),
     ):
-        with caplog.at_level("ERROR"):
-            await alfen_device.async_update()
+        await alfen_device.async_update()
 
     assert "212A_0" not in alfen_device.update_values  # Should be dropped
     assert "rejected by the wallbox" in caplog.text
