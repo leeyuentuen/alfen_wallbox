@@ -9,5 +9,9 @@
     "iot_class": "local_polling",
     "issue_tracker": "https://github.com/leeyuentuen/alfen_wallbox/issues",
     "requirements": [],
-    "version": "3.0.0"
+    "version": "3.0.0",
+    "zeroconf": [
+        "_alfen._tcp.local.",
+        "_lolo3._http._tcp.local."
+    ]
 }

@@ -57,9 +57,14 @@ SOCKET_PATTERN = re.compile(r"Socket #(\d+)")
 # Pattern for extracting tag from log messages
 TAG_PATTERN = re.compile(r"tag:\s*(\S+)")
 
-# Rate limiting constants for login attempts
+# Rate limiting constants for failed login attempts
 LOGIN_RATE_LIMIT_WINDOW = 60  # seconds
-LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5  # max attempts per window
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5  # max failed attempts per window
+
+# HTTP statuses with which the wallbox rejects a value update permanently.
+# Retrying those keeps the update queue busy forever and, on wallboxes that
+# only allow one session at a time, it also breaks every other request.
+REJECTED_VALUE_STATUSES = frozenset({400, 403, 404, 405, 409, 422})
 
 # Reading the complete log and transaction history of the wallbox walks all
 # pages of those categories, which can take longer than an update cycle allows.
@@ -271,6 +276,7 @@ class AlfenDevice:
         value_was_updated = False
         updated_categories = set()  # Track which categories had updates
         successfully_processed_keys = set()  # Track which keys were successfully processed
+        rejected_keys = set()  # Track which keys the wallbox refused
 
         if values:
             _LOGGER.debug("[%s] Processing %d pending value updates", self.log_id, len(values))
@@ -278,7 +284,7 @@ class AlfenDevice:
         for key, value in values.items():
             response = await self._update_value(value["api_param"], value["value"])
 
-            if response:
+            if response is True:
                 # Update the value in the properties dict
                 if value["api_param"] in self.properties:
                     prop = self.properties[value["api_param"]]
@@ -296,6 +302,17 @@ class AlfenDevice:
                 # Track this key for deletion (but don't delete yet to avoid race condition)
                 successfully_processed_keys.add(key)
                 value_was_updated = True
+            elif response is False:
+                # The wallbox refused this value permanently, so retrying it never
+                # succeeds. Drop it so it does not keep the update cycle (and on
+                # wallboxes with a single session: every other request) busy.
+                _LOGGER.error(
+                    "[%s] %s = %s was rejected by the wallbox, removing it from the update queue",
+                    self.log_id,
+                    value["api_param"],
+                    value["value"],
+                )
+                rejected_keys.add(key)
             else:
                 # Log failure but don't remove from update_values so it will retry
                 _LOGGER.warning(
@@ -305,11 +322,12 @@ class AlfenDevice:
                     value["value"],
                 )
 
-        # Remove all successfully processed keys in a single locked operation
-        # This prevents race condition where new values are added during processing
-        if successfully_processed_keys:
+        # Remove all successfully processed and rejected keys in a single locked
+        # operation. This prevents race condition where new values are added during
+        # processing.
+        if successfully_processed_keys or rejected_keys:
             async with self._update_values_lock:
-                for key in successfully_processed_keys:
+                for key in successfully_processed_keys | rejected_keys:
                     # Check key still exists and has same value we processed
                     # If value changed, keep it in queue for next cycle
                     if key in self.update_values:
@@ -925,9 +943,6 @@ class AlfenDevice:
             _LOGGER.warning("[%s] Login blocked by rate limiter", self.log_id)
             return
 
-        # Record this login attempt
-        self._record_login_attempt()
-
         # Check if session/connector needs recreation (e.g., after logout)
         if self._session.closed or (
             hasattr(self._session, "connector")
@@ -1018,6 +1033,9 @@ class AlfenDevice:
                 self.log_id,
                 self._sanitize_exception(e),
             )
+            # Only failed logins count towards the rate limit: logging in again
+            # after the wallbox closed the connection is normal behaviour.
+            self._record_login_attempt()
             # Ensure logged_in stays False on error
             self.logged_in = False
             return
@@ -1058,7 +1076,14 @@ class AlfenDevice:
     async def _update_value(
         self, api_param: str, value: Any, allowed_login: bool = True
     ) -> bool | None:
-        """Update a value on the API."""
+        """Update a value on the API.
+
+        Returns:
+            True if the wallbox accepted the value, False if the wallbox rejected
+            it permanently (the queued value is then dropped instead of retried)
+            and None if the update failed temporarily and should be retried.
+
+        """
         if self.keep_logout:
             return None
 
@@ -1079,6 +1104,16 @@ class AlfenDevice:
                             self.log_id,
                         )
                         needs_auth = True
+                    elif response.status in REJECTED_VALUE_STATUSES:
+                        # The wallbox refuses this value, so retrying it is pointless
+                        _LOGGER.error(
+                            "[%s] Wallbox rejected %s = %s with HTTP %d, not retrying",
+                            self.log_id,
+                            api_param,
+                            value,
+                            response.status,
+                        )
+                        return False
                     else:
                         response.raise_for_status()
                         # Note: Wallbox may close connection after value updates

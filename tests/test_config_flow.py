@@ -1,5 +1,7 @@
 """Test the Alfen Wallbox config flow."""
 
+from ipaddress import ip_address
+
 from homeassistant import config_entries
 from homeassistant.const import (
     CONF_HOST,
@@ -11,6 +13,13 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+
+try:
+    from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+except ImportError:
+    # Fallback for older HA versions: https://developers.home-assistant.io/blog/2025/01/15/service-info/
+    from homeassistant.components.zeroconf import ZeroconfServiceInfo
+
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.alfen_wallbox.const import (
@@ -24,6 +33,24 @@ from custom_components.alfen_wallbox.const import (
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
+
+
+def zeroconf_info(
+    service_type: str = "_alfen._tcp.local.",
+    host: str = "192.168.1.100",
+) -> ZeroconfServiceInfo:
+    """Return Alfen zeroconf discovery info."""
+    address = ip_address(host)
+
+    return ZeroconfServiceInfo(
+        ip_address=address,
+        ip_addresses=[address],
+        port=80,
+        hostname="NG920-61001-ACE0012345.local.",
+        type=service_type,
+        name=f"NG920-61001-ACE0012345.{service_type}",
+        properties={},
+    )
 
 
 async def test_user_form_display(hass: HomeAssistant) -> None:
@@ -112,6 +139,59 @@ async def test_user_form_duplicate_host(hass: HomeAssistant) -> None:
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_zeroconf_discovery(hass: HomeAssistant) -> None:
+    """Test zeroconf discovery."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_ZEROCONF},
+        data=zeroconf_info(),
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "user"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_HOST: "192.168.1.100",
+            CONF_NAME: "My Wallbox",
+            CONF_USERNAME: "admin",
+            CONF_PASSWORD: "secret123",
+        },
+    )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_HOST] == "192.168.1.100"
+
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+    assert entry.unique_id == "ng920-61001-ace0012345"
+
+
+async def test_zeroconf_updates_host(hass: HomeAssistant) -> None:
+    """Test zeroconf updates the host of an existing entry."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="ng920-61001-ace0012345",
+        data={
+            CONF_HOST: "192.168.1.100",
+            CONF_NAME: "My Wallbox",
+            CONF_USERNAME: "admin",
+            CONF_PASSWORD: "secret123",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_ZEROCONF},
+        data=zeroconf_info(host="192.168.1.200"),
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_HOST] == "192.168.1.200"
 
 
 async def test_options_flow_init(hass: HomeAssistant, mock_config_entry: MockConfigEntry) -> None:
