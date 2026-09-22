@@ -340,6 +340,33 @@ async def test_unfinished_fetch_is_retried_on_the_next_cycle(
     assert alfen_device.transaction_counter == 0
 
 
+async def test_repeated_fetch_timeouts_do_not_spam_warnings(
+    alfen_device: AlfenDevice, caplog
+):
+    """Test that a history that keeps not fitting warns once, then goes quiet.
+
+    A wallbox with a very large history times out on every attempt, which should
+    not fill the log with the same warning every cycle.
+    """
+    alfen_device.category_options = ["transactions"]
+
+    async def slow_fetch() -> None:
+        await asyncio.sleep(5)
+
+    with (
+        patch.object(alfen_device, "_get_transaction", new=slow_fetch),
+        patch("custom_components.alfen_wallbox.alfen.LOG_TRANSACTION_FETCH_TIMEOUT", 0.01),
+        caplog.at_level("WARNING"),
+    ):
+        for _ in range(MAX_HISTORY_FETCH_RETRIES + 1):
+            # Being due again is what the retry arranges for the next cycle
+            alfen_device.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
+            await alfen_device._fetch_logs_and_transactions()
+
+    assert caplog.text.count("did not finish within") == 1
+    assert caplog.text.count("still did not finish after") == 1
+
+
 async def test_transaction_fetch_skipped_when_not_due(alfen_device: AlfenDevice):
     """Test that logs and transactions are not fetched every cycle."""
     alfen_device.category_options = ["logs", "transactions"]

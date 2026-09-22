@@ -64,15 +64,27 @@ LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5  # max attempts per window
 # Reading the complete log and transaction history of the wallbox walks all
 # pages of those categories, which can take longer than an update cycle allows.
 # The fetch gets its own budget so that a slow wallbox cannot fail the update.
-LOG_TRANSACTION_FETCH_TIMEOUT = 10  # seconds
+#
+# The budget is spent inside the same update cycle as the property fetches, so it
+# has to leave room for those as well: measured cycles take 3-7s without the
+# fetch, which leaves a worst case of about 10s here instead of the 16s that a
+# 10s budget produced. A shorter budget only means the walk covers less of the
+# history per attempt, which the retries below make up for; the log is read from
+# its most recent lines, so that part is not affected.
+LOG_TRANSACTION_FETCH_TIMEOUT = 5  # seconds
 
 # How often the log and transaction histories are fetched, in update cycles
 LOG_FETCH_INTERVAL = 20
 TRANSACTION_FETCH_INTERVAL = 60
 
 # How many cycles in a row a fetch that did not finish may be retried before it
-# falls back to its normal interval
-MAX_HISTORY_FETCH_RETRIES = 5
+# falls back to its normal interval. The walk of the history continues where the
+# previous attempt stopped, so this is also how much time a wallbox with a large
+# history gets to work through the part it has not read yet: measured, one 5s
+# attempt covers about 45k lines of a transaction log that holds hundreds of
+# thousands of them, so this is enough for such a log and leaves room for larger
+# ones.
+MAX_HISTORY_FETCH_RETRIES = 20
 
 # Valid characters for API parameter IDs (alphanumeric, underscore, hyphen)
 API_PARAM_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
@@ -504,17 +516,34 @@ class AlfenDevice:
                 if transactions_due:
                     await self._get_transaction()
         except TimeoutError:
-            _LOGGER.warning(
-                "[%s] Fetching logs/transactions did not finish within %ds, "
-                "keeping the current data - the rest is fetched in a next cycle",
-                self.log_id,
-                LOG_TRANSACTION_FETCH_TIMEOUT,
-            )
             # Retry on the following cycles instead of waiting for the whole
             # interval again, so a history that does not fit in one cycle is
             # fetched in parts. Give up after a few attempts to avoid fetching
             # part of the history on every single cycle.
             self.history_fetch_retries += 1
+            if self.history_fetch_retries == 1:
+                _LOGGER.warning(
+                    "[%s] Fetching logs/transactions did not finish within %ds, "
+                    "keeping the current data - the rest is fetched in a next cycle",
+                    self.log_id,
+                    LOG_TRANSACTION_FETCH_TIMEOUT,
+                )
+            elif self.history_fetch_retries > MAX_HISTORY_FETCH_RETRIES:
+                _LOGGER.warning(
+                    "[%s] Fetching logs/transactions still did not finish after %d "
+                    "attempts, keeping the current data and returning to the normal "
+                    "schedule",
+                    self.log_id,
+                    MAX_HISTORY_FETCH_RETRIES,
+                )
+            else:
+                _LOGGER.debug(
+                    "[%s] Retrying the log/transaction fetch (attempt %d of %d)",
+                    self.log_id,
+                    self.history_fetch_retries,
+                    MAX_HISTORY_FETCH_RETRIES,
+                )
+
             if self.history_fetch_retries <= MAX_HISTORY_FETCH_RETRIES:
                 if logs_due:
                     self.log_counter = LOG_FETCH_INTERVAL - 1
