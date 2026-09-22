@@ -6,7 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.alfen_wallbox.alfen import AlfenDevice
+from custom_components.alfen_wallbox.alfen import (
+    LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+    AlfenDevice,
+)
 from custom_components.alfen_wallbox.const import ID, PROPERTIES, TOTAL, VALUE
 
 
@@ -108,6 +111,32 @@ async def test_login(alfen_device: AlfenDevice):
         assert alfen_device.keep_logout is False
 
 
+async def test_successful_login_does_not_count_towards_rate_limit(alfen_device: AlfenDevice):
+    """Test that re-logging in does not exhaust the login rate limit.
+
+    The wallbox closes the session after a value update, so logging in again is
+    normal behaviour. Counting those logins as failed attempts used to block all
+    requests for a minute after five value updates.
+    """
+    for _ in range(LOGIN_RATE_LIMIT_MAX_ATTEMPTS + 2):
+        await alfen_device.login()
+        assert alfen_device.logged_in is True
+
+    assert alfen_device._login_attempts == []
+    assert alfen_device._check_login_rate_limit() is True
+
+
+async def test_failed_login_counts_towards_rate_limit(alfen_device: AlfenDevice, mock_session):
+    """Test that failing logins are rate limited."""
+    mock_session.post = MagicMock(side_effect=RuntimeError("no connection"))
+
+    for _ in range(LOGIN_RATE_LIMIT_MAX_ATTEMPTS):
+        await alfen_device.login()
+
+    assert len(alfen_device._login_attempts) == LOGIN_RATE_LIMIT_MAX_ATTEMPTS
+    assert alfen_device._check_login_rate_limit() is False
+
+
 async def test_logout(alfen_device: AlfenDevice):
     """Test logout operation."""
     with patch.object(alfen_device, "_post", new=AsyncMock(return_value={"success": True})):
@@ -189,19 +218,71 @@ async def test_async_update_processes_queue(alfen_device: AlfenDevice):
 
 
 async def test_async_update_retries_failed_updates(alfen_device: AlfenDevice):
-    """Test that failed updates remain in queue for retry."""
+    """Test that temporarily failed updates remain in queue for retry."""
     # Queue an update
     await alfen_device.set_value("2129_0", 16)
 
-    # Mock failed update
+    # Mock temporary failure (None means: try again next cycle)
     with (
-        patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=False)),
+        patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=None)),
         patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])),
     ):
         result = await alfen_device.async_update()
 
         assert result is True
         assert "2129_0" in alfen_device.update_values  # Should remain for retry
+
+
+async def test_async_update_removes_rejected_updates(alfen_device: AlfenDevice, caplog):
+    """Test that values rejected by the wallbox are dropped from the queue.
+
+    A rejection (for example HTTP 403 on a value the wallbox owns itself) never
+    succeeds, so keeping it queued makes the integration retry it every cycle.
+    """
+    await alfen_device.set_value("212A_0", 14)
+
+    # Mock a permanent rejection (False means: the wallbox refused the value)
+    with (
+        patch.object(alfen_device, "_update_value", new=AsyncMock(return_value=False)),
+        patch.object(alfen_device, "_get_all_properties_value", new=AsyncMock(return_value=[])),
+    ):
+        with caplog.at_level("ERROR"):
+            await alfen_device.async_update()
+
+    assert "212A_0" not in alfen_device.update_values  # Should be dropped
+    assert "rejected by the wallbox" in caplog.text
+
+
+async def test_update_value_rejected_status(alfen_device: AlfenDevice, mock_session):
+    """Test that a definitive rejection is reported as a permanent failure."""
+    rejected = MagicMock()
+    rejected.status = 403
+    rejected.raise_for_status = MagicMock()
+
+    mock_ctx = MagicMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=rejected)
+    mock_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post = MagicMock(return_value=mock_ctx)
+
+    alfen_device.logged_in = True
+
+    assert await alfen_device._update_value("212A_0", 14) is False
+    # A rejected value must not invalidate the session
+    assert alfen_device.logged_in is True
+
+
+async def test_update_value_transient_status(alfen_device: AlfenDevice, mock_session):
+    """Test that an unexpected status is reported as a temporary failure."""
+    error = MagicMock()
+    error.status = 500
+    error.raise_for_status = MagicMock(side_effect=RuntimeError("boom"))
+
+    mock_ctx = MagicMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=error)
+    mock_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post = MagicMock(return_value=mock_ctx)
+
+    assert await alfen_device._update_value("2129_0", 16) is None
 
 
 async def test_auto_login_on_401_get(alfen_device: AlfenDevice, mock_session):
