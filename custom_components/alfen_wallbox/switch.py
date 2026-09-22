@@ -9,7 +9,13 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import ExtraStoredData, RestoreEntity
 
-from .const import CAT, SERVICE_DISABLE_PHASE_SWITCHING, SERVICE_ENABLE_PHASE_SWITCHING, VALUE
+from .const import (
+    CAT,
+    LICENSE_HIGH_POWER,
+    SERVICE_DISABLE_PHASE_SWITCHING,
+    SERVICE_ENABLE_PHASE_SWITCHING,
+    VALUE,
+)
 from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
 
@@ -18,7 +24,10 @@ from .entity import AlfenEntity
 # current that was configured before pausing.
 MAX_STATION_CURRENT_API_PARAM = "2062_0"
 PAUSE_CURRENT = 0
+# Resuming without a remembered current uses the maximum the wallbox supports,
+# which is 40 A when the high power socket license is present.
 DEFAULT_RESUME_CURRENT = 16
+HIGH_POWER_RESUME_CURRENT = 40
 
 
 @dataclass(frozen=True)
@@ -109,7 +118,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up Alfen switch entities from a config entry."""
 
-    switches = [AlfenSwitchSensor(entry, description) for description in ALFEN_SWITCH_TYPES]
+    switches: list[AlfenEntity] = [
+        AlfenSwitchSensor(entry, description) for description in ALFEN_SWITCH_TYPES
+    ]
     switches.append(AlfenChargingSwitch(entry))
 
     async_add_entities(switches)
@@ -250,7 +261,7 @@ class AlfenChargingSwitch(AlfenEntity, SwitchEntity, RestoreEntity):
         """Resume charging with the current that was configured before pausing."""
         await self.coordinator.device.set_value(
             MAX_STATION_CURRENT_API_PARAM,
-            self._resume_current or DEFAULT_RESUME_CURRENT,
+            self._resume_current or self._default_resume_current,
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -260,6 +271,14 @@ class AlfenChargingSwitch(AlfenEntity, SwitchEntity, RestoreEntity):
             self._resume_current = current
 
         await self.coordinator.device.set_value(MAX_STATION_CURRENT_API_PARAM, PAUSE_CURRENT)
+
+    @property
+    def _default_resume_current(self) -> int:
+        """Return the current to resume with when none was remembered."""
+        if LICENSE_HIGH_POWER in self.coordinator.device.get_licenses():
+            return HIGH_POWER_RESUME_CURRENT
+
+        return DEFAULT_RESUME_CURRENT
 
     @property
     def _max_station_current(self) -> int:

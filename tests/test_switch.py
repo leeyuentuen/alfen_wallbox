@@ -330,3 +330,26 @@ async def test_charging_switch_without_known_current_uses_default(
 
     await switch.async_turn_on()
     mock_alfen_device.set_value.assert_called_once_with("2062_0", DEFAULT_RESUME_CURRENT)
+
+
+async def test_charging_switch_uses_high_power_current_when_licensed(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_alfen_device,
+) -> None:
+    """Test that resuming uses the maximum current the wallbox supports."""
+    mock_config_entry.add_to_hass(hass)
+
+    from custom_components.alfen_wallbox.const import LICENSE_HIGH_POWER
+    from custom_components.alfen_wallbox.coordinator import AlfenCoordinator
+
+    coordinator = AlfenCoordinator(hass, mock_config_entry)
+    coordinator.device = mock_alfen_device
+    mock_config_entry.runtime_data = coordinator
+
+    mock_alfen_device.properties = {}
+    mock_alfen_device.get_licenses.return_value = [LICENSE_HIGH_POWER]
+    switch = AlfenChargingSwitch(mock_config_entry)
+
+    await switch.async_turn_on()
+    mock_alfen_device.set_value.assert_called_once_with("2062_0", 40)
