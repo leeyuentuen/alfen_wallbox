@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.alfen_wallbox.alfen import (
+    MAX_HISTORY_FETCH_RETRIES,
+    TRANSACTION_FETCH_INTERVAL,
     LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
     AlfenDevice,
 )
@@ -359,6 +361,127 @@ async def test_lock_prevents_concurrent_requests(alfen_device: AlfenDevice, mock
 
     # Verify requests were serialized (start-end-start-end, not start-start-end-end)
     assert call_order == ["start", "end", "start", "end"]
+
+
+async def test_slow_transaction_fetch_is_bounded(alfen_device: AlfenDevice, caplog):
+    """Test that a slow log/transaction fetch cannot fail the update cycle.
+
+    Both fetches walk the complete history of the wallbox, which can take longer
+    than the coordinator allows for an update.
+    """
+    alfen_device.category_options = ["transactions"]
+    alfen_device.force_update_transaction = True
+
+    async def slow_fetch() -> None:
+        await asyncio.sleep(5)
+
+    with (
+        patch.object(alfen_device, "_get_transaction", new=slow_fetch),
+        patch("custom_components.alfen_wallbox.alfen.LOG_TRANSACTION_FETCH_TIMEOUT", 0.01),
+        caplog.at_level("WARNING"),
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    assert "did not finish within" in caplog.text
+
+
+async def test_unfinished_fetch_is_retried_on_the_next_cycle(
+    alfen_device: AlfenDevice, caplog
+):
+    """Test that a fetch which did not finish is retried soon.
+
+    Otherwise a history that does not fit in one cycle leaves the tag and
+    transaction sensors empty until the whole interval has passed again.
+    """
+    alfen_device.category_options = ["transactions"]
+    alfen_device.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
+
+    async def slow_fetch() -> None:
+        await asyncio.sleep(5)
+
+    with (
+        patch.object(alfen_device, "_get_transaction", new=slow_fetch),
+        patch("custom_components.alfen_wallbox.alfen.LOG_TRANSACTION_FETCH_TIMEOUT", 0.01),
+        caplog.at_level("WARNING"),
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    # The transaction fetch is due again on the next cycle
+    assert alfen_device.transaction_counter == TRANSACTION_FETCH_INTERVAL - 1
+    assert alfen_device.history_fetch_retries == 1
+
+    # ... but not forever: after MAX_HISTORY_FETCH_RETRIES the normal schedule
+    # takes over again
+    alfen_device.history_fetch_retries = MAX_HISTORY_FETCH_RETRIES
+    with (
+        patch.object(alfen_device, "_get_transaction", new=slow_fetch),
+        patch("custom_components.alfen_wallbox.alfen.LOG_TRANSACTION_FETCH_TIMEOUT", 0.01),
+        caplog.at_level("WARNING"),
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    assert alfen_device.transaction_counter == 0
+
+
+async def test_repeated_fetch_timeouts_do_not_spam_warnings(
+    alfen_device: AlfenDevice, caplog
+):
+    """Test that a history that keeps not fitting warns once, then goes quiet.
+
+    A wallbox with a very large history times out on every attempt, which should
+    not fill the log with the same warning every cycle.
+    """
+    alfen_device.category_options = ["transactions"]
+
+    async def slow_fetch() -> None:
+        await asyncio.sleep(5)
+
+    with (
+        patch.object(alfen_device, "_get_transaction", new=slow_fetch),
+        patch("custom_components.alfen_wallbox.alfen.LOG_TRANSACTION_FETCH_TIMEOUT", 0.01),
+        caplog.at_level("WARNING"),
+    ):
+        for _ in range(MAX_HISTORY_FETCH_RETRIES + 1):
+            # Being due again is what the retry arranges for the next cycle
+            alfen_device.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
+            await alfen_device._fetch_logs_and_transactions()
+
+    assert caplog.text.count("did not finish within") == 1
+    assert caplog.text.count("still did not finish after") == 1
+
+
+async def test_transaction_fetch_skipped_when_not_due(alfen_device: AlfenDevice):
+    """Test that logs and transactions are not fetched every cycle."""
+    alfen_device.category_options = ["logs", "transactions"]
+    alfen_device.log_counter = 0
+    alfen_device.transaction_counter = 0
+
+    with (
+        patch.object(alfen_device, "_get_log", new=AsyncMock()) as mock_log,
+        patch.object(alfen_device, "_get_transaction", new=AsyncMock()) as mock_transaction,
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    mock_log.assert_not_awaited()
+    mock_transaction.assert_not_awaited()
+
+
+async def test_first_update_fetches_logs_and_transactions(alfen_device: AlfenDevice):
+    """Test that both histories are fetched in the first update cycle.
+
+    Without this the tag and transaction sensors stay empty until the 20th or
+    60th cycle has passed, which is half an hour with the default scan interval.
+    """
+    alfen_device.category_options = ["logs", "transactions"]
+
+    with (
+        patch.object(alfen_device, "_get_log", new=AsyncMock()) as mock_log,
+        patch.object(alfen_device, "_get_transaction", new=AsyncMock()) as mock_transaction,
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    mock_log.assert_awaited_once()
+    mock_transaction.assert_awaited_once()
 
 
 async def test_get_number_of_sockets(alfen_device: AlfenDevice):

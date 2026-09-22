@@ -66,6 +66,31 @@ LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5  # max failed attempts per window
 # only allow one session at a time, it also breaks every other request.
 REJECTED_VALUE_STATUSES = frozenset({400, 403, 404, 405, 409, 422})
 
+# Reading the complete log and transaction history of the wallbox walks all
+# pages of those categories, which can take longer than an update cycle allows.
+# The fetch gets its own budget so that a slow wallbox cannot fail the update.
+#
+# The budget is spent inside the same update cycle as the property fetches, so it
+# has to leave room for those as well: measured cycles take 3-7s without the
+# fetch, which leaves a worst case of about 10s here instead of the 16s that a
+# 10s budget produced. A shorter budget only means the walk covers less of the
+# history per attempt, which the retries below make up for; the log is read from
+# its most recent lines, so that part is not affected.
+LOG_TRANSACTION_FETCH_TIMEOUT = 5  # seconds
+
+# How often the log and transaction histories are fetched, in update cycles
+LOG_FETCH_INTERVAL = 20
+TRANSACTION_FETCH_INTERVAL = 60
+
+# How many cycles in a row a fetch that did not finish may be retried before it
+# falls back to its normal interval. The walk of the history continues where the
+# previous attempt stopped, so this is also how much time a wallbox with a large
+# history gets to work through the part it has not read yet: measured, one 5s
+# attempt covers about 45k lines of a transaction log that holds hundreds of
+# thousands of them, so this is enough for such a log and leaves room for larger
+# ones.
+MAX_HISTORY_FETCH_RETRIES = 20
+
 # Valid characters for API parameter IDs (alphanumeric, underscore, hyphen)
 API_PARAM_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -106,8 +131,12 @@ class AlfenDevice:
         self.max_allowed_phases = 1
         self.latest_tag: dict[tuple[str, str, str], Any] | None = None
         self.transaction_offset = 0
-        self.transaction_counter = 0
-        self.log_counter = 0
+        # Fetch both histories once in the first update cycle, so the sensors
+        # built from them are filled after a restart instead of staying empty
+        # until the 20th/60th cycle has passed.
+        self.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
+        self.log_counter = LOG_FETCH_INTERVAL - 1
+        self.history_fetch_retries = 0
         self.category_rotation_index = 0
         self.ssl = ssl
         self.static_properties: list[dict[str, Any]] = []
@@ -472,20 +501,74 @@ class AlfenDevice:
 
     async def _fetch_logs_and_transactions(self) -> None:
         """Fetch logs and transactions according to their schedules."""
-        # Only fetch logs every 20th update cycle (reduces API load)
+        # Only fetch logs every LOG_FETCH_INTERVAL cycles (reduces API load)
         # With 30s scan interval, this means every ~10 minutes
+        logs_due = False
         if CAT_LOGS in self.category_options:
-            self.log_counter = (self.log_counter + 1) % 20
-            if self.log_counter == 0:
-                await self._get_log()
+            self.log_counter = (self.log_counter + 1) % LOG_FETCH_INTERVAL
+            logs_due = self.log_counter == 0
 
-        # Only fetch transactions every 60th update cycle (reduces API load)
-        # With 30s scan interval, this means every ~30 minutes
+        # Only fetch transactions every TRANSACTION_FETCH_INTERVAL cycles
+        # (reduces API load). With 30s scan interval, this means every ~30 minutes
+        transactions_due = False
         if CAT_TRANSACTIONS in self.category_options:
-            self.transaction_counter = (self.transaction_counter + 1) % 60
-            if self.transaction_counter == 0 or self.force_update_transaction is True:
-                self.force_update_transaction = False
-                await self._get_transaction()
+            self.transaction_counter = (
+                self.transaction_counter + 1
+            ) % TRANSACTION_FETCH_INTERVAL
+            transactions_due = (
+                self.transaction_counter == 0 or self.force_update_transaction is True
+            )
+            self.force_update_transaction = False
+
+        if not logs_due and not transactions_due:
+            return
+
+        # Both fetches walk the complete history of the wallbox, which can take
+        # longer than an update cycle allows. They get their own budget so a slow
+        # wallbox cannot fail the whole update; the rest is fetched in a next cycle.
+        try:
+            async with timeout(LOG_TRANSACTION_FETCH_TIMEOUT):
+                if logs_due:
+                    await self._get_log()
+
+                if transactions_due:
+                    await self._get_transaction()
+        except TimeoutError:
+            # Retry on the following cycles instead of waiting for the whole
+            # interval again, so a history that does not fit in one cycle is
+            # fetched in parts. Give up after a few attempts to avoid fetching
+            # part of the history on every single cycle.
+            self.history_fetch_retries += 1
+            if self.history_fetch_retries == 1:
+                _LOGGER.warning(
+                    "[%s] Fetching logs/transactions did not finish within %ds, "
+                    "keeping the current data - the rest is fetched in a next cycle",
+                    self.log_id,
+                    LOG_TRANSACTION_FETCH_TIMEOUT,
+                )
+            elif self.history_fetch_retries > MAX_HISTORY_FETCH_RETRIES:
+                _LOGGER.warning(
+                    "[%s] Fetching logs/transactions still did not finish after %d "
+                    "attempts, keeping the current data and returning to the normal "
+                    "schedule",
+                    self.log_id,
+                    MAX_HISTORY_FETCH_RETRIES,
+                )
+            else:
+                _LOGGER.debug(
+                    "[%s] Retrying the log/transaction fetch (attempt %d of %d)",
+                    self.log_id,
+                    self.history_fetch_retries,
+                    MAX_HISTORY_FETCH_RETRIES,
+                )
+
+            if self.history_fetch_retries <= MAX_HISTORY_FETCH_RETRIES:
+                if logs_due:
+                    self.log_counter = LOG_FETCH_INTERVAL - 1
+                if transactions_due:
+                    self.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
+        else:
+            self.history_fetch_retries = 0
 
     async def async_update(self) -> bool:
         """Update the device properties.
