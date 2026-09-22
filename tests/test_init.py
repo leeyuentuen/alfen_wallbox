@@ -15,8 +15,40 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.alfen_wallbox import async_migrate_entity_entry
-from custom_components.alfen_wallbox.const import DOMAIN
+from custom_components.alfen_wallbox import (
+    _warn_about_missing_transaction_categories,
+    async_migrate_entity_entry,
+)
+from custom_components.alfen_wallbox.const import CONF_REFRESH_CATEGORIES, DOMAIN
+
+
+def test_warns_when_transaction_categories_are_missing(caplog) -> None:
+    """Test that missing log/transaction categories are explained."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Test Wallbox",
+        options={CONF_REFRESH_CATEGORIES: ["generic", "states"]},
+    )
+
+    with caplog.at_level("WARNING"):
+        _warn_about_missing_transaction_categories(entry)
+
+    assert "stay empty" in caplog.text
+    assert "logs, transactions" in caplog.text
+
+
+def test_no_warning_when_transaction_categories_are_refreshed(caplog) -> None:
+    """Test that enabling the categories silences the warning."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Test Wallbox",
+        options={CONF_REFRESH_CATEGORIES: ["generic", "states", "logs", "transactions"]},
+    )
+
+    with caplog.at_level("WARNING"):
+        _warn_about_missing_transaction_categories(entry)
+
+    assert caplog.text == ""
 
 
 async def test_setup_entry_success(
