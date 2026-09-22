@@ -1,12 +1,16 @@
 """Test the Alfen Wallbox switch entities."""
 
+from unittest.mock import AsyncMock, patch
+
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.alfen_wallbox.entity import AlfenEntity
 from custom_components.alfen_wallbox.switch import (
     ALFEN_SWITCH_TYPES,
     DEFAULT_RESUME_CURRENT,
     AlfenChargingSwitch,
+    AlfenChargingSwitchExtraStoredData,
     async_setup_entry,
 )
 
@@ -330,6 +334,47 @@ async def test_charging_switch_without_known_current_uses_default(
 
     await switch.async_turn_on()
     mock_alfen_device.set_value.assert_called_once_with("2062_0", DEFAULT_RESUME_CURRENT)
+
+
+async def test_charging_switch_restores_the_paused_current(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_alfen_device,
+) -> None:
+    """Test that the current remembered before a restart is used to resume.
+
+    The wallbox stays paused across a restart of Home Assistant, so the current
+    the switch paused with has to survive that restart as well. Without it,
+    resuming would fall back to the default instead of what was configured.
+    """
+    mock_config_entry.add_to_hass(hass)
+
+    from custom_components.alfen_wallbox.coordinator import AlfenCoordinator
+
+    coordinator = AlfenCoordinator(hass, mock_config_entry)
+    coordinator.device = mock_alfen_device
+    mock_config_entry.runtime_data = coordinator
+
+    # The wallbox is paused, so the switch is off
+    mock_alfen_device.properties = {"2062_0": {"value": 0, "cat": "generic"}}
+    switch = AlfenChargingSwitch(mock_config_entry)
+
+    with (
+        patch.object(AlfenEntity, "async_added_to_hass", new=AsyncMock()),
+        patch.object(
+            switch,
+            "async_get_last_extra_data",
+            return_value=AlfenChargingSwitchExtraStoredData(10),
+        ),
+    ):
+        await switch.async_added_to_hass()
+
+    assert switch.is_on is False
+    assert switch.extra_state_attributes["resume_current"] == 10
+
+    # Resuming uses the restored current, not the default
+    await switch.async_turn_on()
+    mock_alfen_device.set_value.assert_called_once_with("2062_0", 10)
 
 
 async def test_charging_switch_uses_high_power_current_when_licensed(
