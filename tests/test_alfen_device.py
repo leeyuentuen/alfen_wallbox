@@ -276,6 +276,42 @@ async def test_lock_prevents_concurrent_requests(alfen_device: AlfenDevice, mock
     assert call_order == ["start", "end", "start", "end"]
 
 
+async def test_slow_transaction_fetch_is_bounded(alfen_device: AlfenDevice, caplog):
+    """Test that a slow log/transaction fetch cannot fail the update cycle.
+
+    Both fetches walk the complete history of the wallbox, which can take longer
+    than the coordinator allows for an update.
+    """
+    alfen_device.category_options = ["transactions"]
+    alfen_device.force_update_transaction = True
+
+    async def slow_fetch() -> None:
+        await asyncio.sleep(5)
+
+    with (
+        patch.object(alfen_device, "_get_transaction", new=slow_fetch),
+        patch("custom_components.alfen_wallbox.alfen.LOG_TRANSACTION_FETCH_TIMEOUT", 0.01),
+        caplog.at_level("WARNING"),
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    assert "did not finish within" in caplog.text
+
+
+async def test_transaction_fetch_skipped_when_not_due(alfen_device: AlfenDevice):
+    """Test that logs and transactions are not fetched every cycle."""
+    alfen_device.category_options = ["logs", "transactions"]
+
+    with (
+        patch.object(alfen_device, "_get_log", new=AsyncMock()) as mock_log,
+        patch.object(alfen_device, "_get_transaction", new=AsyncMock()) as mock_transaction,
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    mock_log.assert_not_awaited()
+    mock_transaction.assert_not_awaited()
+
+
 async def test_get_number_of_sockets(alfen_device: AlfenDevice):
     """Test getting number of sockets from properties."""
     alfen_device.properties = {"205E_0": {VALUE: 2}}

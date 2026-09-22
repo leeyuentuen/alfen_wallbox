@@ -61,6 +61,11 @@ TAG_PATTERN = re.compile(r"tag:\s*(\S+)")
 LOGIN_RATE_LIMIT_WINDOW = 60  # seconds
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5  # max attempts per window
 
+# Reading the complete log and transaction history of the wallbox walks all
+# pages of those categories, which can take longer than an update cycle allows.
+# The fetch gets its own budget so that a slow wallbox cannot fail the update.
+LOG_TRANSACTION_FETCH_TIMEOUT = 10  # seconds
+
 # Valid characters for API parameter IDs (alphanumeric, underscore, hyphen)
 API_PARAM_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -456,18 +461,41 @@ class AlfenDevice:
         """Fetch logs and transactions according to their schedules."""
         # Only fetch logs every 20th update cycle (reduces API load)
         # With 30s scan interval, this means every ~10 minutes
+        logs_due = False
         if CAT_LOGS in self.category_options:
             self.log_counter = (self.log_counter + 1) % 20
-            if self.log_counter == 0:
-                await self._get_log()
+            logs_due = self.log_counter == 0
 
         # Only fetch transactions every 60th update cycle (reduces API load)
         # With 30s scan interval, this means every ~30 minutes
+        transactions_due = False
         if CAT_TRANSACTIONS in self.category_options:
             self.transaction_counter = (self.transaction_counter + 1) % 60
-            if self.transaction_counter == 0 or self.force_update_transaction is True:
-                self.force_update_transaction = False
-                await self._get_transaction()
+            transactions_due = (
+                self.transaction_counter == 0 or self.force_update_transaction is True
+            )
+            self.force_update_transaction = False
+
+        if not logs_due and not transactions_due:
+            return
+
+        # Both fetches walk the complete history of the wallbox, which can take
+        # longer than an update cycle allows. They get their own budget so a slow
+        # wallbox cannot fail the whole update; the rest is fetched in a next cycle.
+        try:
+            async with timeout(LOG_TRANSACTION_FETCH_TIMEOUT):
+                if logs_due:
+                    await self._get_log()
+
+                if transactions_due:
+                    await self._get_transaction()
+        except TimeoutError:
+            _LOGGER.warning(
+                "[%s] Fetching logs/transactions did not finish within %ds, "
+                "keeping the current data - the rest is fetched in a next cycle",
+                self.log_id,
+                LOG_TRANSACTION_FETCH_TIMEOUT,
+            )
 
     async def async_update(self) -> bool:
         """Update the device properties.
