@@ -301,6 +301,8 @@ async def test_slow_transaction_fetch_is_bounded(alfen_device: AlfenDevice, capl
 async def test_transaction_fetch_skipped_when_not_due(alfen_device: AlfenDevice):
     """Test that logs and transactions are not fetched every cycle."""
     alfen_device.category_options = ["logs", "transactions"]
+    alfen_device.log_counter = 0
+    alfen_device.transaction_counter = 0
 
     with (
         patch.object(alfen_device, "_get_log", new=AsyncMock()) as mock_log,
@@ -310,6 +312,24 @@ async def test_transaction_fetch_skipped_when_not_due(alfen_device: AlfenDevice)
 
     mock_log.assert_not_awaited()
     mock_transaction.assert_not_awaited()
+
+
+async def test_first_update_fetches_logs_and_transactions(alfen_device: AlfenDevice):
+    """Test that both histories are fetched in the first update cycle.
+
+    Without this the tag and transaction sensors stay empty until the 20th or
+    60th cycle has passed, which is half an hour with the default scan interval.
+    """
+    alfen_device.category_options = ["logs", "transactions"]
+
+    with (
+        patch.object(alfen_device, "_get_log", new=AsyncMock()) as mock_log,
+        patch.object(alfen_device, "_get_transaction", new=AsyncMock()) as mock_transaction,
+    ):
+        await alfen_device._fetch_logs_and_transactions()
+
+    mock_log.assert_awaited_once()
+    mock_transaction.assert_awaited_once()
 
 
 async def test_get_number_of_sockets(alfen_device: AlfenDevice):

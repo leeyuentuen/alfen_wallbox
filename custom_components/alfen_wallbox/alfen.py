@@ -66,6 +66,10 @@ LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5  # max attempts per window
 # The fetch gets its own budget so that a slow wallbox cannot fail the update.
 LOG_TRANSACTION_FETCH_TIMEOUT = 10  # seconds
 
+# How often the log and transaction histories are fetched, in update cycles
+LOG_FETCH_INTERVAL = 20
+TRANSACTION_FETCH_INTERVAL = 60
+
 # Valid characters for API parameter IDs (alphanumeric, underscore, hyphen)
 API_PARAM_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -106,8 +110,11 @@ class AlfenDevice:
         self.max_allowed_phases = 1
         self.latest_tag: dict[tuple[str, str, str], Any] | None = None
         self.transaction_offset = 0
-        self.transaction_counter = 0
-        self.log_counter = 0
+        # Fetch both histories once in the first update cycle, so the sensors
+        # built from them are filled after a restart instead of staying empty
+        # until the 20th/60th cycle has passed.
+        self.transaction_counter = TRANSACTION_FETCH_INTERVAL - 1
+        self.log_counter = LOG_FETCH_INTERVAL - 1
         self.category_rotation_index = 0
         self.ssl = ssl
         self.static_properties: list[dict[str, Any]] = []
@@ -459,18 +466,20 @@ class AlfenDevice:
 
     async def _fetch_logs_and_transactions(self) -> None:
         """Fetch logs and transactions according to their schedules."""
-        # Only fetch logs every 20th update cycle (reduces API load)
+        # Only fetch logs every LOG_FETCH_INTERVAL cycles (reduces API load)
         # With 30s scan interval, this means every ~10 minutes
         logs_due = False
         if CAT_LOGS in self.category_options:
-            self.log_counter = (self.log_counter + 1) % 20
+            self.log_counter = (self.log_counter + 1) % LOG_FETCH_INTERVAL
             logs_due = self.log_counter == 0
 
-        # Only fetch transactions every 60th update cycle (reduces API load)
-        # With 30s scan interval, this means every ~30 minutes
+        # Only fetch transactions every TRANSACTION_FETCH_INTERVAL cycles
+        # (reduces API load). With 30s scan interval, this means every ~30 minutes
         transactions_due = False
         if CAT_TRANSACTIONS in self.category_options:
-            self.transaction_counter = (self.transaction_counter + 1) % 60
+            self.transaction_counter = (
+                self.transaction_counter + 1
+            ) % TRANSACTION_FETCH_INTERVAL
             transactions_due = (
                 self.transaction_counter == 0 or self.force_update_transaction is True
             )
