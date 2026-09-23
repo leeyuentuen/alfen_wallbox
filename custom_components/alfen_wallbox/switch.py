@@ -7,10 +7,27 @@ from homeassistant.components.switch import SwitchEntity, SwitchEntityDescriptio
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import ExtraStoredData, RestoreEntity
 
-from .const import CAT, SERVICE_DISABLE_PHASE_SWITCHING, SERVICE_ENABLE_PHASE_SWITCHING, VALUE
+from .const import (
+    CAT,
+    LICENSE_HIGH_POWER,
+    SERVICE_DISABLE_PHASE_SWITCHING,
+    SERVICE_ENABLE_PHASE_SWITCHING,
+    VALUE,
+)
 from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
+
+# The wallbox has no pause command: it stops charging when the maximum station
+# current (2062_0) is 0. The charging switch writes that value and restores the
+# current that was configured before pausing.
+MAX_STATION_CURRENT_API_PARAM = "2062_0"
+PAUSE_CURRENT = 0
+# Resuming without a remembered current uses the maximum the wallbox supports,
+# which is 40 A when the high power socket license is present.
+DEFAULT_RESUME_CURRENT = 16
+HIGH_POWER_RESUME_CURRENT = 40
 
 
 @dataclass(frozen=True)
@@ -101,7 +118,10 @@ async def async_setup_entry(
 ) -> None:
     """Set up Alfen switch entities from a config entry."""
 
-    switches = [AlfenSwitchSensor(entry, description) for description in ALFEN_SWITCH_TYPES]
+    switches: list[AlfenEntity] = [
+        AlfenSwitchSensor(entry, description) for description in ALFEN_SWITCH_TYPES
+    ]
+    switches.append(AlfenChargingSwitch(entry))
 
     async_add_entities(switches)
 
@@ -179,3 +199,89 @@ class AlfenSwitchSensor(AlfenEntity, SwitchEntity):
         """Disable phase switching."""
         await self.coordinator.device.set_phase_switching(False)
         await self.async_turn_off()
+
+
+@dataclass
+class AlfenChargingSwitchExtraStoredData(ExtraStoredData):
+    """Extra data to restore the charging switch."""
+
+    resume_current: int | None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return a serializable representation."""
+        return {"resume_current": self.resume_current}
+
+
+class AlfenChargingSwitch(AlfenEntity, SwitchEntity, RestoreEntity):
+    """Switch that pauses and resumes charging.
+
+    Setting the maximum station current to 0 stops the wallbox from charging.
+    This switch remembers the current that was configured before pausing, so
+    resuming does not silently change the charging speed.
+    """
+
+    _attr_icon = "mdi:ev-station"
+
+    def __init__(self, entry: AlfenConfigEntry) -> None:
+        """Initialize."""
+        super().__init__(entry)
+
+        self._attr_name = f"{self.coordinator.device.name} Charging"
+        self._attr_unique_id = f"{self.coordinator.device.id}_charging"
+        self._resume_current: int | None = None
+
+    @property
+    def available(self) -> bool:
+        """Return True if the maximum station current is known."""
+        return MAX_STATION_CURRENT_API_PARAM in self.coordinator.device.properties
+
+    @property
+    def is_on(self) -> bool:
+        """Return True when charging is allowed."""
+        return self._max_station_current > PAUSE_CURRENT
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the current that is restored when charging resumes."""
+        return {"resume_current": self._resume_current}
+
+    @property
+    def extra_restore_state_data(self) -> AlfenChargingSwitchExtraStoredData:
+        """Return the data to restore after a restart."""
+        return AlfenChargingSwitchExtraStoredData(self._resume_current)
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the current that was configured before pausing."""
+        await super().async_added_to_hass()
+
+        if (extra := await self.async_get_last_extra_data()) is not None:
+            self._resume_current = extra.as_dict().get("resume_current")
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Resume charging with the current that was configured before pausing."""
+        await self.coordinator.device.set_value(
+            MAX_STATION_CURRENT_API_PARAM,
+            self._resume_current or self._default_resume_current,
+        )
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Pause charging by setting the maximum station current to 0."""
+        current = self._max_station_current
+        if current > PAUSE_CURRENT:
+            self._resume_current = current
+
+        await self.coordinator.device.set_value(MAX_STATION_CURRENT_API_PARAM, PAUSE_CURRENT)
+
+    @property
+    def _default_resume_current(self) -> int:
+        """Return the current to resume with when none was remembered."""
+        if LICENSE_HIGH_POWER in self.coordinator.device.get_licenses():
+            return HIGH_POWER_RESUME_CURRENT
+
+        return DEFAULT_RESUME_CURRENT
+
+    @property
+    def _max_station_current(self) -> int:
+        """Return the maximum station current reported by the wallbox."""
+        prop = self.coordinator.device.properties.get(MAX_STATION_CURRENT_API_PARAM)
+        return int(prop[VALUE]) if prop else PAUSE_CURRENT
