@@ -135,7 +135,7 @@ def mock_tcp_connector_fixture():
 @pytest.fixture(name="mock_ssl_context", autouse=True)
 def mock_ssl_context_fixture():
     """Mock SSL context."""
-    with patch("custom_components.alfen_wallbox.coordinator.get_default_context") as mock_ssl:
+    with patch("custom_components.alfen_wallbox.coordinator._create_ssl_context") as mock_ssl:
         context = MagicMock()
         mock_ssl.return_value = context
         yield context
