@@ -2,15 +2,20 @@
 
 import asyncio
 from datetime import timedelta
+from ssl import CERT_NONE, CERT_REQUIRED
 from unittest.mock import AsyncMock, patch
 
 from aiohttp import ClientConnectionError
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util.ssl import get_default_context
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.alfen_wallbox.coordinator import AlfenCoordinator
+from custom_components.alfen_wallbox.coordinator import (
+    AlfenCoordinator,
+    _create_ssl_context as _real_create_ssl_context,
+)
 
 
 async def test_coordinator_successful_update(
@@ -200,3 +205,50 @@ async def test_coordinator_setup_creates_device(
         # Verify device was created with correct parameters
         mock_device_class.assert_called_once()
         assert coordinator.device == mock_device
+
+
+def test_ssl_context_is_private() -> None:
+    """Test the wallbox SSL context is not Home Assistant's shared context."""
+    shared = get_default_context()
+
+    context = _real_create_ssl_context()
+
+    assert context is not shared
+    assert context.verify_mode == CERT_NONE
+    assert context.check_hostname is False
+
+
+async def test_coordinator_setup_keeps_shared_ssl_context_verifying(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_aiohttp_session,
+) -> None:
+    """Test setup leaves Home Assistant's shared SSL context untouched.
+
+    The shared context is used by every other integration: if setup switched
+    off verification on it, certificate checks would stop process-wide.
+    """
+    mock_config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "custom_components.alfen_wallbox.coordinator._create_ssl_context",
+            _real_create_ssl_context,
+        ),
+        patch(
+            "custom_components.alfen_wallbox.coordinator.AlfenDevice", autospec=True
+        ) as mock_device_class,
+    ):
+        mock_device_class.return_value.init = AsyncMock(return_value=True)
+
+        coordinator = AlfenCoordinator(hass, mock_config_entry)
+        await coordinator._async_setup()
+
+        # The context is the 7th positional argument of AlfenDevice
+        device_context = mock_device_class.call_args.args[6]
+
+    shared = get_default_context()
+    assert device_context is not shared
+    assert device_context.verify_mode == CERT_NONE
+    assert shared.verify_mode == CERT_REQUIRED
+    assert shared.check_hostname is True

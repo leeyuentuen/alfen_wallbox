@@ -4,7 +4,7 @@ import asyncio
 from asyncio import timeout
 from datetime import timedelta
 import logging
-from ssl import CERT_NONE
+from ssl import CERT_NONE, SSLContext, create_default_context
 
 from aiohttp import ClientConnectionError, ClientSession, TCPConnector
 from aiohttp.connector import TCPConnector as TCPConnectorType
@@ -19,7 +19,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.util.ssl import get_default_context
 
 from .alfen import AlfenDevice
 from .const import (
@@ -37,6 +36,29 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 type AlfenConfigEntry = ConfigEntry[AlfenCoordinator]
+
+
+def _create_ssl_context() -> SSLContext:
+    """Create a private SSL context for the wallbox's self-signed certificate.
+
+    The wallbox presents a self-signed certificate, so hostname checking and
+    certificate verification have to be switched off for it. That must happen
+    on a context of our own: `homeassistant.util.ssl.get_default_context()`
+    returns Home Assistant's process-wide context, and changing it disables
+    certificate verification for every other integration that uses it.
+
+    Creating a default context loads the system CA certificates from disk, so
+    call this from the executor, not from the event loop.
+
+    Returns:
+        SSLContext that accepts the wallbox's self-signed certificate
+    """
+    context = create_default_context()
+    # Default ciphers needed as of python 3.10
+    context.set_ciphers("DEFAULT")
+    context.check_hostname = False
+    context.verify_mode = CERT_NONE
+    return context
 
 
 def _create_tcp_connector() -> TCPConnectorType:
@@ -97,12 +119,7 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
         """Set up the coordinator."""
         self._session = ClientSession(connector=_create_tcp_connector())
 
-        # Default ciphers needed as of python 3.10
-        context = get_default_context()
-
-        context.set_ciphers("DEFAULT")
-        context.check_hostname = False
-        context.verify_mode = CERT_NONE
+        context = await self.hass.async_add_executor_job(_create_ssl_context)
 
         self.device = AlfenDevice(
             self._session,
