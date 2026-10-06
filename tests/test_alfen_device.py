@@ -7,9 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.alfen_wallbox.alfen import (
+    LOGIN_FAILURE_BACKOFF,
+    LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
     MAX_HISTORY_FETCH_RETRIES,
     TRANSACTION_FETCH_INTERVAL,
-    LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
     AlfenDevice,
 )
 from custom_components.alfen_wallbox.const import ID, PROPERTIES, TOTAL, VALUE
@@ -130,15 +131,43 @@ async def test_successful_login_does_not_count_towards_rate_limit(
     assert alfen_device._check_login_rate_limit() is True
 
 
-async def test_failed_login_counts_towards_rate_limit(alfen_device: AlfenDevice, mock_session):
-    """Test that failing logins are rate limited."""
+async def test_failed_login_is_immediately_rate_limited(alfen_device: AlfenDevice, mock_session):
+    """Test that a failed login immediately blocks repeated attempts."""
     mock_session.post = MagicMock(side_effect=RuntimeError("no connection"))
 
     for _ in range(LOGIN_RATE_LIMIT_MAX_ATTEMPTS):
         await alfen_device.login()
 
-    assert len(alfen_device._login_attempts) == LOGIN_RATE_LIMIT_MAX_ATTEMPTS
+    assert mock_session.post.call_count == 1
+    assert len(alfen_device._login_attempts) == 1
     assert alfen_device._check_login_rate_limit() is False
+
+
+async def test_failed_login_starts_backoff(alfen_device: AlfenDevice, mock_session):
+    """Test that an unreachable wallbox is not retried every update cycle."""
+    mock_session.post = MagicMock(side_effect=RuntimeError("no connection"))
+
+    with patch("custom_components.alfen_wallbox.alfen.time.time", return_value=1000):
+        await alfen_device.login()
+        await alfen_device.login()
+
+    assert mock_session.post.call_count == 1
+    assert alfen_device._login_retry_after == 1000 + LOGIN_FAILURE_BACKOFF
+
+
+async def test_successful_login_clears_backoff_and_failures(
+    alfen_device: AlfenDevice,
+):
+    """Test that recovery removes all temporary login restrictions."""
+    alfen_device._login_retry_after = 999
+    alfen_device._login_attempts = [1, 2]
+
+    with patch("custom_components.alfen_wallbox.alfen.time.time", return_value=1000):
+        await alfen_device.login()
+
+    assert alfen_device.logged_in is True
+    assert alfen_device._login_retry_after == 0
+    assert alfen_device._login_attempts == []
 
 
 async def test_logout(alfen_device: AlfenDevice):

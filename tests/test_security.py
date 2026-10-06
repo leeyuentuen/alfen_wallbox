@@ -7,6 +7,7 @@ import pytest
 
 from custom_components.alfen_wallbox.alfen import (
     API_PARAM_PATTERN,
+    LOGIN_FAILURE_BACKOFF,
     LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
     LOGIN_RATE_LIMIT_WINDOW,
     AlfenDevice,
@@ -63,6 +64,7 @@ class TestLoginRateLimiting:
         """Test rate limit constants are defined correctly."""
         assert LOGIN_RATE_LIMIT_WINDOW == 60
         assert LOGIN_RATE_LIMIT_MAX_ATTEMPTS == 5
+        assert LOGIN_FAILURE_BACKOFF == 300
 
     def test_check_login_rate_limit_allows_first_attempt(self, alfen_device):
         """Test that first login attempt is allowed."""

@@ -60,6 +60,10 @@ TAG_PATTERN = re.compile(r"tag:\s*(\S+)")
 # Rate limiting constants for failed login attempts
 LOGIN_RATE_LIMIT_WINDOW = 60  # seconds
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5  # max failed attempts per window
+# Avoid retrying an unreachable wallbox on every coordinator update. Besides
+# adding load while the device is offline, that used to emit several warnings
+# every scan interval and quickly flood the Home Assistant log.
+LOGIN_FAILURE_BACKOFF = 300  # seconds
 
 # HTTP statuses with which the wallbox rejects a value update permanently.
 # Retrying those keeps the update queue busy forever and, on wallboxes that
@@ -161,6 +165,7 @@ class AlfenDevice:
         self._session_recreate_callback: Callable[[], Any] | None = None
         # Rate limiting for login attempts (security)
         self._login_attempts: list[float] = []
+        self._login_retry_after = 0.0
         # force update transaction
         self.force_update_transaction = False
 
@@ -251,6 +256,7 @@ class AlfenDevice:
                     self.log_id,
                 )
                 self.logged_in = False
+                self._login_retry_after = time.time() + LOGIN_FAILURE_BACKOFF
             except Exception as e:
                 _LOGGER.warning(
                     "[%s] Proactive login failed: %s - aborting update cycle",
@@ -586,7 +592,7 @@ class AlfenDevice:
             # 1. Proactively login if not logged in
             if not await self._proactive_login():
                 update_duration = (datetime.datetime.now() - update_start).total_seconds()
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "[%s] Update cycle FAILED (login failed) after %.2fs",
                     self.log_id,
                     update_duration,
@@ -803,6 +809,14 @@ class AlfenDevice:
 
         """
         current_time = time.time()
+        if current_time < self._login_retry_after:
+            _LOGGER.debug(
+                "[%s] Login deferred for another %.0fs after previous failure",
+                self.log_id,
+                self._login_retry_after - current_time,
+            )
+            return False
+
         # Remove old attempts outside the window
         self._login_attempts = [
             t for t in self._login_attempts if current_time - t < LOGIN_RATE_LIMIT_WINDOW
@@ -815,6 +829,7 @@ class AlfenDevice:
                 len(self._login_attempts),
                 LOGIN_RATE_LIMIT_WINDOW,
             )
+            self._login_retry_after = current_time + LOGIN_FAILURE_BACKOFF
             return False
         return True
 
@@ -940,7 +955,7 @@ class AlfenDevice:
 
         # Check rate limiting before attempting login
         if not self._check_login_rate_limit():
-            _LOGGER.warning("[%s] Login blocked by rate limiter", self.log_id)
+            _LOGGER.debug("[%s] Login postponed by retry limiter", self.log_id)
             return
 
         # Check if session/connector needs recreation (e.g., after logout)
@@ -1003,7 +1018,7 @@ class AlfenDevice:
                         except Exception:
                             response = None
                 except Exception as e:
-                    _LOGGER.error(
+                    _LOGGER.debug(
                         "[%s] Login request failed: %s",
                         self.log_id,
                         self._sanitize_exception(e),
@@ -1013,6 +1028,8 @@ class AlfenDevice:
 
             # Only set logged_in = True if we got here without exception
             self.logged_in = True
+            self._login_retry_after = 0.0
+            self._login_attempts.clear()
             self.last_updated = datetime.datetime.now()
 
             if response is None:
@@ -1038,6 +1055,7 @@ class AlfenDevice:
             self._record_login_attempt()
             # Ensure logged_in stays False on error
             self.logged_in = False
+            self._login_retry_after = time.time() + LOGIN_FAILURE_BACKOFF
             return
 
     async def logout(self):
