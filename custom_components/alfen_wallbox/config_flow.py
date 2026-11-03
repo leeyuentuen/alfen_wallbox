@@ -3,7 +3,6 @@
 from typing import Any
 
 from homeassistant.config_entries import (
-    CONN_CLASS_LOCAL_POLL,
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
@@ -107,7 +106,6 @@ class AlfenFlowHandler(ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
     VERSION = 2
-    CONNECTION_CLASS = CONN_CLASS_LOCAL_POLL
 
     _discovered_host: str | None = None
 
