@@ -2,13 +2,7 @@
 
 from typing import Any
 
-from homeassistant.config_entries import (
-    CONN_CLASS_LOCAL_POLL,
-    ConfigEntry,
-    ConfigFlow,
-    ConfigFlowResult,
-    OptionsFlow,
-)
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import (
     CONF_HOST,
     CONF_NAME,
@@ -107,7 +101,6 @@ class AlfenFlowHandler(ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
     VERSION = 2
-    CONNECTION_CLASS = CONN_CLASS_LOCAL_POLL
 
     _discovered_host: str | None = None
 
