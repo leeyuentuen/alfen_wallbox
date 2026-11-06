@@ -88,8 +88,15 @@ async def test_device_init(alfen_device: AlfenDevice, mock_session):
     assert alfen_device.info.firmware_version == "5.9.0"
 
 
-async def test_device_init_failure(alfen_device: AlfenDevice, mock_session):
-    """Test device initialization failure."""
+async def test_device_init_with_missing_info_endpoint(
+    alfen_device: AlfenDevice, mock_session
+):
+    """Test init succeeds when the firmware has no /api/info endpoint.
+
+    Firmware 4.12.0-3320 returns 404 for /api/info. Setup must continue
+    using the generic device info instead of treating it as a failed
+    connection, otherwise the config entry stays in setup_retry forever.
+    """
     mock_response = MagicMock()
     mock_response.status = 404
     mock_response.headers = {}
@@ -99,10 +106,10 @@ async def test_device_init_failure(alfen_device: AlfenDevice, mock_session):
 
     result = await alfen_device.init()
 
-    # Should return False but still set generic info
-    assert result is False
+    assert result is True
     assert alfen_device.info is not None
     assert alfen_device.info.identity == "192.168.1.100"
+    assert alfen_device.info.model == "Generic Alfen Wallbox"
 
 
 async def test_login(alfen_device: AlfenDevice):
