@@ -204,7 +204,13 @@ class AlfenDevice:
         return licenses
 
     async def get_info(self) -> bool:
-        """Get info from the API."""
+        """Get info from the API.
+
+        The info endpoint is optional metadata. Some firmware versions
+        (for example 4.12.0-3320) do not implement /api/info and return
+        404. The generic fallback below contains everything needed to
+        continue setting up, so a missing endpoint is not a failure.
+        """
         response = await self._session.get(
             url=self.__get_url(INFO), headers=self._auth_headers(), ssl=self.ssl
         )
@@ -225,7 +231,7 @@ class AlfenDevice:
             "Type": "?",
         }
         self.info = AlfenDeviceInfo(generic_info)
-        return False
+        return True
 
     @property
     def device_info(self) -> dict[str, Any]:
