@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import datetime
-from typing import Final
+from typing import Any, Final
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -26,6 +26,7 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
+from . import charging_insights
 from .const import CAT, ID, SERVICE_REBOOT_WALLBOX, VALUE
 from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
@@ -1696,6 +1697,14 @@ async def async_setup_entry(
 
     async_add_entities(sensors)
     async_add_entities([AlfenMainSensor(entry, ALFEN_SENSOR_TYPES[0])])
+    async_add_entities(
+        [
+            AlfenChargingStatusSensor(entry),
+            AlfenChargingLimitSensor(entry),
+            *(AlfenSessionSensor(entry, kind) for kind in SESSION_SENSOR_KINDS),
+            *(AlfenSolarSplitSensor(entry, kind) for kind in SOLAR_SPLIT_SENSORS),
+        ]
+    )
 
     coordinator = entry.runtime_data
     if coordinator.device.get_number_of_sockets() == 2:
@@ -2257,3 +2266,249 @@ class AlfenSensor(AlfenEntity, SensorEntity):
     async def async_update(self):
         """Get the latest data and updates the states."""
         self._async_update_attrs()
+
+
+# ---------------------------------------------------------------------------
+# Charging insights: status, limiting factor, session, solar / grid split
+# ---------------------------------------------------------------------------
+
+
+class AlfenChargingStatusSensor(AlfenEntity, SensorEntity):
+    """Human-readable charging status of socket 1."""
+
+    _attr_icon = "mdi:ev-station"
+    _attr_translation_key = "charging_status"
+
+    def __init__(self, entry: AlfenConfigEntry) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        self._attr_name = f"{device.name} Charging Status"
+        self._attr_unique_id = f"{device.id}-charging_status"
+
+    def _state(self) -> int | None:
+        value = charging_insights.prop_value(
+            self.coordinator.device.properties, charging_insights.PROP_MAIN_STATE_SOCKET_1
+        )
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def available(self) -> bool:
+        """Return True when the main socket state is known."""
+        return self._state() is not None
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the status message."""
+        return charging_insights.charging_status(self.coordinator.device.properties)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the raw state for automations and conditional cards."""
+        state = self._state()
+        return {
+            "state_code": state,
+            "state": (
+                charging_insights.SOCKET_MAIN_STATE.get(state, ("unknown", ""))[0]
+                if state is not None
+                else None
+            ),
+            "vehicle_connected": state is not None
+            and state not in charging_insights.IDLE_MAIN_STATES,
+            "charging": state in charging_insights.CHARGING_MAIN_STATES,
+        }
+
+
+class AlfenChargingLimitSensor(AlfenEntity, SensorEntity):
+    """What currently limits the charging current (218F_1)."""
+
+    _attr_icon = "mdi:speedometer-slow"
+    _attr_translation_key = "charging_limited_by"
+
+    def __init__(self, entry: AlfenConfigEntry) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        self._attr_name = f"{device.name} Charging Limited By"
+        self._attr_unique_id = f"{device.id}-charging_limited_by"
+
+    def _flags(self) -> list[int] | None:
+        properties = self.coordinator.device.properties
+        if charging_insights.PROP_LIMITING_FACTOR not in properties:
+            return None
+        return charging_insights.decode_limiting_factor(
+            charging_insights.prop_value(properties, charging_insights.PROP_LIMITING_FACTOR)
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return True when the wallbox reports a limiting factor."""
+        return self._flags() is not None
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the limiting factor(s), e.g. 'cable' or 'alb_active'."""
+        flags = self._flags()
+        if flags is None:
+            return None
+        if not flags:
+            return "none"
+        return ", ".join(charging_insights.LIMITING_FACTOR_FLAGS[flag] for flag in flags)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the group (load_balancing / vehicle / installation) and raw flags."""
+        flags = self._flags() or []
+        return {"group": charging_insights.limiting_group(flags), "flags": flags}
+
+
+SESSION_SENSOR_KINDS: Final = ("energy", "duration", "max_power")
+
+
+class AlfenSessionSensor(AlfenEntity, SensorEntity):
+    """Energy, duration or peak power of the current (or last) charging session."""
+
+    def __init__(self, entry: AlfenConfigEntry, kind: str) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        self._kind = kind
+        self._attr_translation_key = f"session_{kind}"
+        self._attr_unique_id = f"{device.id}-session_{kind}"
+        if kind == "energy":
+            self._attr_name = f"{device.name} Session Energy"
+            self._attr_icon = "mdi:battery-charging"
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+            self._attr_suggested_display_precision = 2
+        elif kind == "duration":
+            self._attr_name = f"{device.name} Session Duration"
+            self._attr_icon = "mdi:timer-outline"
+            self._attr_device_class = SensorDeviceClass.DURATION
+            self._attr_native_unit_of_measurement = UnitOfTime.SECONDS
+            self._attr_suggested_unit_of_measurement = UnitOfTime.MINUTES
+        else:
+            self._attr_name = f"{device.name} Session Max Power"
+            self._attr_icon = "mdi:flash"
+            self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+            self._attr_suggested_display_precision = 1
+
+    @property
+    def native_value(self) -> float | int | None:
+        """Return the session value."""
+        session = self.coordinator.device.session
+        if self._kind == "energy":
+            return session.energy_kwh
+        if self._kind == "duration":
+            return session.duration_seconds
+        return None if session.max_power_w is None else round(session.max_power_w / 1000, 2)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return whether the session is still running and when it started / ended."""
+        session = self.coordinator.device.session
+        return {
+            "active": session.active,
+            "start": session.start.isoformat() if session.start else None,
+            "end": session.end.isoformat() if session.end else None,
+        }
+
+
+SOLAR_SPLIT_SENSORS: Final = {
+    # kind: (name, icon, unique id suffix)
+    "solar_power": ("Solar Charging Power", "mdi:solar-power", "solar_charging_power"),
+    "grid_power": ("Grid Charging Power", "mdi:transmission-tower", "grid_power"),
+    "green_share": ("Green Share", "mdi:leaf", "green_share"),
+    "session_green_share": ("Session Green Share", "mdi:leaf-circle", "session_green_share"),
+}
+
+
+class AlfenSolarSplitSensor(AlfenEntity, SensorEntity):
+    """How much of the charging power comes from solar vs the grid.
+
+    Uses the smart meter's net power at the grid connection (5221_16): while
+    exporting, all charging power is solar; while importing, the imported part is
+    grid power. Only available with a smart meter connected to the wallbox.
+    """
+
+    def __init__(self, entry: AlfenConfigEntry, kind: str) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        name, icon, unique = SOLAR_SPLIT_SENSORS[kind]
+        self._kind = kind
+        self._attr_name = f"{device.name} {name}"
+        self._attr_icon = icon
+        self._attr_translation_key = unique
+        self._attr_unique_id = f"{device.id}-{unique}"
+        if kind.endswith("_power"):
+            self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_native_unit_of_measurement = UnitOfPower.WATT
+            self._attr_suggested_display_precision = 0
+        else:
+            self._attr_native_unit_of_measurement = PERCENTAGE
+            self._attr_suggested_display_precision = 0
+            if kind == "green_share":
+                self._attr_state_class = SensorStateClass.MEASUREMENT
+
+    def _split(self) -> tuple[float, float]:
+        properties = self.coordinator.device.properties
+        return charging_insights.solar_grid_split(
+            _float_or_none(
+                charging_insights.prop_value(
+                    properties, charging_insights.PROP_METER_POWER_SOCKET_1
+                )
+            ),
+            _float_or_none(
+                charging_insights.prop_value(properties, charging_insights.PROP_SMART_METER_POWER)
+            ),
+        )
+
+    @property
+    def available(self) -> bool:
+        """Only with a smart meter connected to the wallbox."""
+        return (
+            _float_or_none(
+                charging_insights.prop_value(
+                    self.coordinator.device.properties, charging_insights.PROP_SMART_METER_POWER
+                )
+            )
+            is not None
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the solar / grid power or the green share."""
+        if self._kind == "session_green_share":
+            return self.coordinator.device.session.green_share
+        solar, grid = self._split()
+        if self._kind == "solar_power":
+            return round(solar)
+        if self._kind == "grid_power":
+            return round(grid)
+        total = solar + grid
+        return round(solar / total * 100, 1) if total > 0 else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the session's solar / grid energy for the session share."""
+        if self._kind != "session_green_share":
+            return None
+        session = self.coordinator.device.session
+        return {
+            "solar_kwh": round(session.solar_wh / 1000, 2),
+            "grid_kwh": round(session.grid_wh / 1000, 2),
+        }
+
+
+def _float_or_none(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None

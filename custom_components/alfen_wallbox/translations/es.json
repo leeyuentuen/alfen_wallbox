@@ -244,6 +244,33 @@
             },
             "last_modify_datetime": {
                 "name": "Última modificación config"
+            },
+            "charging_status": {
+                "name": "Estado de carga"
+            },
+            "charging_limited_by": {
+                "name": "Carga limitada por"
+            },
+            "session_energy": {
+                "name": "Energía de la sesión"
+            },
+            "session_duration": {
+                "name": "Duración de la sesión"
+            },
+            "session_max_power": {
+                "name": "Potencia máx. de la sesión"
+            },
+            "solar_charging_power": {
+                "name": "Potencia de carga solar"
+            },
+            "grid_power": {
+                "name": "Potencia de carga de la red"
+            },
+            "green_share": {
+                "name": "Cuota verde"
+            },
+            "session_green_share": {
+                "name": "Cuota verde de la sesión"
             }
         },
         "binary_sensor": {
@@ -276,6 +303,9 @@
             },
             "https_api_login_status": {
                 "name": "Estado de conexión API"
+            },
+            "charging_restricted": {
+                "name": "Carga restringida"
             }
         },
         "number": {

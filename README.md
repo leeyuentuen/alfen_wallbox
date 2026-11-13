@@ -150,6 +150,22 @@ To enable them, open the integration options (Configure) and add `logs` and
 button or wait for the next scheduled fetch (every 20 and 60 update cycles). The
 integration logs a warning on setup while those categories are missing.
 
+## Charging Insight Sensors
+
+These entities are derived from properties the integration already reads, so they need
+no extra requests to the wallbox:
+
+| Entity | Description |
+|---|---|
+| **Charging Status** | Human-readable status of socket 1 (e.g. *Charging session active.*, *Waiting for power.*, *Solar charging using green mode.*, *Charging session has been paused.*). Attributes: `state_code`, `state`, `vehicle_connected`, `charging` |
+| **Charging Limited By** | What currently limits the charging current (`218F_1`), e.g. `cable`, `alb_active`, `derating`. Attribute `group`: `load_balancing`, `vehicle` or `installation` |
+| **Charging Restricted** (binary) | On while charging is held back by load balancing, the vehicle or the installation (not by the configured maximum current) |
+| **Session Energy / Duration / Max Power** | Energy (kWh), duration and peak power of the current or last charging session; a session runs from connecting the vehicle until disconnecting |
+| **Solar Charging Power / Grid Charging Power** | Split of the charging power using the smart meter's net power (`5221_16`): while exporting, all charging power counts as solar; while importing, the imported part counts as grid |
+| **Green Share / Session Green Share** | Solar share (%) of the current charging power and of the energy charged in the session |
+
+The solar / grid sensors are only available when a smart meter is connected to the wallbox.
+
 ## Services
 Example of running in Services:
 Note; The name of the configured charging point is "wallbox" in these examples.

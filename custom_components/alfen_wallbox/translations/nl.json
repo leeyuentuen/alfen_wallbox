@@ -244,6 +244,33 @@
             },
             "last_modify_datetime": {
                 "name": "Laatste configuratiewijziging"
+            },
+            "charging_status": {
+                "name": "Laadstatus"
+            },
+            "charging_limited_by": {
+                "name": "Laden beperkt door"
+            },
+            "session_energy": {
+                "name": "Sessie-energie"
+            },
+            "session_duration": {
+                "name": "Sessieduur"
+            },
+            "session_max_power": {
+                "name": "Sessie max. vermogen"
+            },
+            "solar_charging_power": {
+                "name": "Laadvermogen uit zon"
+            },
+            "grid_power": {
+                "name": "Laadvermogen uit net"
+            },
+            "green_share": {
+                "name": "Groen aandeel"
+            },
+            "session_green_share": {
+                "name": "Groen aandeel sessie"
             }
         },
         "binary_sensor": {
@@ -276,6 +303,9 @@
             },
             "https_api_login_status": {
                 "name": "API login status"
+            },
+            "charging_restricted": {
+                "name": "Laden beperkt"
             }
         },
         "number": {

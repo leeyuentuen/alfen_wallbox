@@ -13,6 +13,7 @@ from homeassistant.const import (
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.alfen_wallbox.charging_insights import ChargingSession
 from custom_components.alfen_wallbox.const import (
     CONF_REFRESH_CATEGORIES,
     DEFAULT_REFRESH_CATEGORIES,
@@ -54,6 +55,7 @@ def mock_alfen_device_fixture():
         mock_device.log_id = "Test Wallbox@192.168.1.100"
         mock_device.get_licenses = MagicMock(return_value=[])
         mock_device.get_number_of_sockets = MagicMock(return_value=1)
+        mock_device.session = ChargingSession()
         mock_device.keep_logout = False
         mock_device.get_static_properties = False
         mock_device.category_options = ["generic", "states"]

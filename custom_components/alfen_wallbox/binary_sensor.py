@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import logging
-from typing import Final
+from typing import Any, Final
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -13,6 +13,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from . import charging_insights
 from .const import (
     CAT,
     LICENSE_HIGH_POWER,
@@ -127,10 +128,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up Alfen binary sensor entities from a config entry."""
 
-    binaries = [
+    binaries: list[BinarySensorEntity] = [
         AlfenBinarySensor(entry, description)
         for description in ALFEN_BINARY_SENSOR_TYPES
     ]
+    binaries.append(AlfenChargingRestrictedBinarySensor(entry))
 
     async_add_entities(binaries)
 
@@ -229,3 +231,52 @@ class AlfenBinarySensor(AlfenEntity, BinarySensorEntity):
             return {"last_updated": self.coordinator.device.last_updated}
 
         return None
+
+
+class AlfenChargingRestrictedBinarySensor(AlfenEntity, BinarySensorEntity):
+    """On while charging is held back by load balancing, the vehicle or the installation.
+
+    Based on the current-limiting factor (218F_1). Limits that only reflect the
+    configured maximum (socket / station / external setting) are not reported.
+    """
+
+    _attr_icon = "mdi:speedometer-slow"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_translation_key = "charging_restricted"
+
+    def __init__(self, entry: AlfenConfigEntry) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        self._attr_name = f"{device.name} Charging Restricted"
+        self._attr_unique_id = f"{device.id}-charging_restricted"
+
+    @property
+    def available(self) -> bool:
+        """Return True when the wallbox reports a limiting factor."""
+        return charging_insights.PROP_LIMITING_FACTOR in self.coordinator.device.properties
+
+    def _reason(self) -> str | None:
+        properties = self.coordinator.device.properties
+        try:
+            state = int(
+                charging_insights.prop_value(properties, charging_insights.PROP_MAIN_STATE_SOCKET_1)
+            )
+        except (TypeError, ValueError):
+            return None
+        if state not in charging_insights.CHARGING_MAIN_STATES:
+            return None
+        flags = charging_insights.decode_limiting_factor(
+            charging_insights.prop_value(properties, charging_insights.PROP_LIMITING_FACTOR)
+        )
+        return charging_insights.limiting_group(flags)
+
+    @property
+    def is_on(self) -> bool:
+        """Return True while charging is restricted."""
+        return self._reason() is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return why charging is restricted (load_balancing, vehicle, installation)."""
+        return {"reason": self._reason()}
