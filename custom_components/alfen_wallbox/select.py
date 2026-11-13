@@ -5,12 +5,17 @@ from typing import Final
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 import voluptuous as vol
 
+from .alfen import ChargingProfileError
 from .const import (
     CAT,
+    CHARGE_CONTROL_BOOST,
+    CHARGE_CONTROL_CHARGING,
+    CHARGE_CONTROL_PAUSED,
     SERVICE_DISABLE_RFID_AUTHORIZATION_MODE,
     SERVICE_ENABLE_RFID_AUTHORIZATION_MODE,
     SERVICE_SET_CURRENT_PHASE,
@@ -338,7 +343,10 @@ async def async_setup_entry(
 ) -> None:
     """Add Alfen Select from a config_entry."""
 
-    selects = [AlfenSelect(entry, description) for description in ALFEN_SELECT_TYPES]
+    selects: list[SelectEntity] = [
+        AlfenSelect(entry, description) for description in ALFEN_SELECT_TYPES
+    ]
+    selects.append(AlfenChargeControlSelect(entry))
 
     async_add_entities(selects)
 
@@ -454,3 +462,51 @@ class AlfenSelect(AlfenEntity, SelectEntity):
         await self.coordinator.device.set_rfid_auth_mode(False)
         await self.coordinator.device.set_value(self.entity_description.api_param, 0)
         self.async_write_ha_state()
+
+
+CHARGE_CONTROL_OPTIONS: Final[dict[str, str]] = {
+    "Charging": CHARGE_CONTROL_CHARGING,
+    "Paused": CHARGE_CONTROL_PAUSED,
+    "Boost": CHARGE_CONTROL_BOOST,
+}
+
+
+class AlfenChargeControlSelect(AlfenEntity, SelectEntity):
+    """Charge control: Charging, Paused or Boost (3 h at full power).
+
+    Uses the same pause / boost charging profiles as the Eve Connect app, so a
+    pause or boost started in either is shown in both.
+    """
+
+    _attr_icon = "mdi:ev-station"
+    _attr_translation_key = "charge_control"
+
+    def __init__(self, entry: AlfenConfigEntry) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        self._attr_name = f"{device.name} Charge Control"
+        self._attr_unique_id = f"{device.id}_charge_control"
+        self._attr_options = list(CHARGE_CONTROL_OPTIONS)
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the active charge-control mode."""
+        mode = self.coordinator.device.charge_control
+        return next(
+            (label for label, value in CHARGE_CONTROL_OPTIONS.items() if value == mode),
+            None,
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return when an active boost ends."""
+        ends = self.coordinator.device.boost_ends_at
+        return {"boost_ends_at": ends.isoformat() if ends else None}
+
+    async def async_select_option(self, option: str) -> None:
+        """Pause, resume or boost charging."""
+        try:
+            await self.coordinator.device.set_charge_control(CHARGE_CONTROL_OPTIONS[option])
+        except (ChargingProfileError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err

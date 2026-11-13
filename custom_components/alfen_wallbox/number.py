@@ -19,10 +19,12 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 import voluptuous as vol
 
+from .alfen import ChargingProfileError
 from .const import (
     CAT,
     LICENSE_HIGH_POWER,
@@ -501,7 +503,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Alfen select entities from a config entry."""
-    numbers = [AlfenNumber(entry, description) for description in ALFEN_NUMBER_TYPES]
+    numbers: list[NumberEntity] = [
+        AlfenNumber(entry, description) for description in ALFEN_NUMBER_TYPES
+    ]
+    numbers.append(AlfenMaxPowerNumber(entry))
 
     async_add_entities(numbers)
 
@@ -664,3 +669,55 @@ class AlfenNumber(AlfenEntity, NumberEntity):
     async def async_update(self):
         """Get the latest data and updates the states."""
         self._set_current_option()
+
+
+class AlfenMaxPowerNumber(AlfenEntity, NumberEntity):
+    """Preferred maximum charging power.
+
+    Stored on the wallbox as the app's max-power charging profile, so the value
+    is shared with the app. Without a profile the station maximum applies.
+    """
+
+    _attr_icon = "mdi:speedometer"
+    _attr_translation_key = "max_charging_power"
+    _attr_device_class = NumberDeviceClass.POWER
+    _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+    _attr_native_step = 0.1
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(self, entry: AlfenConfigEntry) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        self._attr_name = f"{device.name} Maximum Charging Power"
+        self._attr_unique_id = f"{device.id}_max_charging_power"
+
+    @property
+    def native_min_value(self) -> float:
+        """Return the minimum power (6 A on one phase)."""
+        return self.coordinator.device.min_station_power
+
+    @property
+    def native_max_value(self) -> float:
+        """Return the station maximum for the phases present."""
+        return self.coordinator.device.max_station_power
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the preferred maximum, or the station maximum when unset."""
+        device = self.coordinator.device
+        value = device.max_power
+        return device.max_station_power if value is None else min(value, device.max_station_power)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return whether a limit is stored and how it maps to amps."""
+        device = self.coordinator.device
+        return {"limited": device.max_power is not None, "active_phases": device.active_phases}
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Store a new preferred maximum power."""
+        try:
+            await self.coordinator.device.set_max_power(value)
+        except ChargingProfileError as err:
+            raise HomeAssistantError(str(err)) from err

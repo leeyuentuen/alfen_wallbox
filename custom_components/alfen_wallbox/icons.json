@@ -127,6 +127,9 @@
             },
             "heartbeat_interval": {
                 "default": "mdi:heart-pulse"
+            },
+            "max_charging_power": {
+                "default": "mdi:speedometer"
             }
         },
         "select": {
@@ -144,6 +147,9 @@
             },
             "display_language": {
                 "default": "mdi:translate"
+            },
+            "charge_control": {
+                "default": "mdi:ev-station"
             }
         },
         "switch": {
@@ -164,6 +170,9 @@
             },
             "proxy_enabled": {
                 "default": "mdi:server-network"
+            },
+            "charging_schedule_enabled": {
+                "default": "mdi:calendar-clock"
             }
         },
         "button": {
@@ -208,6 +217,9 @@
         "disable_phase_switching": "mdi:swap-horizontal",
         "set_green_share": "mdi:solar-power",
         "set_comfort_power": "mdi:solar-power-variant",
-        "get_transactions": "mdi:history"
+        "get_transactions": "mdi:history",
+        "set_schedule_day": "mdi:calendar-edit",
+        "add_schedule_timeslot": "mdi:calendar-plus",
+        "clear_charging_schedule": "mdi:calendar-remove"
     }
 }

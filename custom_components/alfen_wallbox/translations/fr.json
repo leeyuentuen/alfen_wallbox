@@ -172,6 +172,72 @@
                     "description": "Date de fin pour le filtre de transactions."
                 }
             }
+        },
+        "set_schedule_day": {
+            "name": "Définir un jour du planning",
+            "description": "Remplace tous les créneaux de charge d'un jour. Une liste vide efface le jour.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entité",
+                    "description": "L'interrupteur Planning de charge."
+                },
+                "day": {
+                    "name": "Jour",
+                    "description": "Jour de la semaine à configurer."
+                },
+                "timeslots": {
+                    "name": "Créneaux",
+                    "description": "Liste de créneaux avec début et fin (HH:MM) et en option max_power (kW) ou max_current (A)."
+                }
+            }
+        },
+        "add_schedule_timeslot": {
+            "name": "Ajouter un créneau",
+            "description": "Ajoute un créneau de charge aux jours indiqués. Les créneaux existants sont conservés ; les chevauchements sont refusés (max. 7 par jour).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entité",
+                    "description": "L'interrupteur Planning de charge."
+                },
+                "start_time": {
+                    "name": "Heure de début",
+                    "description": "Début du créneau (HH:MM)."
+                },
+                "end_time": {
+                    "name": "Heure de fin",
+                    "description": "Fin du créneau (HH:MM) ; avant ou égale au début, continue le jour suivant."
+                },
+                "days": {
+                    "name": "Jours",
+                    "description": "Jours de la semaine (par défaut : tous les jours)."
+                },
+                "max_power": {
+                    "name": "Puissance max.",
+                    "description": "Puissance maximale en kW (par défaut : maximum de la borne)."
+                },
+                "max_current": {
+                    "name": "Courant max.",
+                    "description": "Courant maximal en A (alternative à la puissance max.)."
+                },
+                "replace": {
+                    "name": "Remplacer",
+                    "description": "Remplacer les créneaux existants de ces jours au lieu d'ajouter."
+                }
+            }
+        },
+        "clear_charging_schedule": {
+            "name": "Effacer le planning de charge",
+            "description": "Supprime les créneaux des jours indiqués, ou tout le planning.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entité",
+                    "description": "L'interrupteur Planning de charge."
+                },
+                "days": {
+                    "name": "Jours",
+                    "description": "Jours de la semaine (par défaut : tous les jours)."
+                }
+            }
         }
     },
     "entity": {
@@ -302,6 +368,9 @@
             },
             "heartbeat_interval": {
                 "name": "Intervalle heartbeat"
+            },
+            "max_charging_power": {
+                "name": "Puissance de charge maximale"
             }
         },
         "select": {
@@ -319,6 +388,9 @@
             },
             "display_language": {
                 "name": "Langue d'affichage"
+            },
+            "charge_control": {
+                "name": "Contrôle de charge"
             }
         },
         "switch": {
@@ -339,6 +411,9 @@
             },
             "proxy_enabled": {
                 "name": "Proxy activé"
+            },
+            "charging_schedule_enabled": {
+                "name": "Planning de charge"
             }
         },
         "button": {

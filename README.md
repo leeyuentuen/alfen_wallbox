@@ -150,6 +150,55 @@ To enable them, open the integration options (Configure) and add `logs` and
 button or wait for the next scheduled fetch (every 20 and 60 update cycles). The
 integration logs a warning on setup while those categories are missing.
 
+## Charge Control, Maximum Power and Schedule
+
+These entities use the wallbox's charging profiles with the same profile IDs as the
+Alfen **Eve Connect** app, so a pause, boost, maximum power or schedule set in either
+is shown in both.
+
+| Entity | Description |
+|---|---|
+| **Charge Control** (select) | `Charging` / `Paused` / `Boost`. Boost charges at the station maximum for 3 hours, overriding solar and schedule limits (attribute `boost_ends_at`) |
+| **Maximum Charging Power** (number, kW) | Preferred maximum charging power. Converted to amps for the phases present; below 6 A per phase it charges on one phase |
+| **Charging Schedule** (switch) | When on, the wallbox only charges inside the scheduled time slots. Attributes list the slots per weekday |
+| **Schedule Monday … Sunday** (sensors) | The time slots of each day with their power, e.g. `22:00-24:00 (7.4 kW)` |
+
+Time slots are edited with these services (target: the *Charging Schedule* switch).
+A day holds up to 7 slots; overlapping slots are rejected and a slot that ends at or
+before its start continues into the next day.
+
+```yaml
+# Weeknights 22:00-06:00 at 7.4 kW
+action: alfen_wallbox.add_schedule_timeslot
+target:
+  entity_id: switch.wallbox_charging_schedule
+data:
+  start_time: "22:00"
+  end_time: "06:00"
+  max_power: 7.4
+  days: [Monday, Tuesday, Wednesday, Thursday, Friday]
+```
+
+```yaml
+# Replace Saturday's slots (an empty list clears the day)
+action: alfen_wallbox.set_schedule_day
+target:
+  entity_id: switch.wallbox_charging_schedule
+data:
+  day: Saturday
+  timeslots:
+    - {start: "00:00", end: "07:00", max_power: 11}
+```
+
+```yaml
+# Clear the weekend (omit days to clear the whole schedule)
+action: alfen_wallbox.clear_charging_schedule
+target:
+  entity_id: switch.wallbox_charging_schedule
+data:
+  days: [Saturday, Sunday]
+```
+
 ## Services
 Example of running in Services:
 Note; The name of the configured charging point is "wallbox" in these examples.

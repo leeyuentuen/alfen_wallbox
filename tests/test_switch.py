@@ -37,7 +37,7 @@ async def test_switch_setup(
     await async_setup_entry(hass, mock_config_entry, add_entities)
 
     # Should create 13 property switches plus the charging switch
-    assert len(entities) == 14
+    assert len(entities) == 15  # + Charging Schedule
     assert entities[0].entity_description.key == "lb_enable_phase_switching"
     assert entities[1].entity_description.key == "dp_light_auto_dim"
     assert entities[-1]._attr_unique_id == "alfen_Test Wallbox_charging"

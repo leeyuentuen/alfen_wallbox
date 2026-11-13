@@ -45,6 +45,72 @@ CAT_LOGS = "logs"
 COMMAND_REBOOT = "reboot"
 COMMAND_CLEAR_TRANSACTIONS = "txerase"
 
+# ---------------------------------------------------------------------------
+# Charging-profile protocol of the Eve Connect app. Using the exact same IDs,
+# purpose and stack levels keeps Home Assistant and the app in sync: a pause or
+# boost started in one is shown correctly in the other.
+# ---------------------------------------------------------------------------
+CHARGING_PROFILES = "chargingprofiles"  # API endpoint
+PROFILE_PURPOSE_EXTERNAL = "ChargingStationExternalConstraints"
+PROFILE_ID_MAX_POWER = -19930828
+PROFILE_ID_BOOST = -19571004
+PROFILE_ID_PAUSE = -12122008
+PROFILE_ID_UK_DEFAULT = -19061964
+PROFILE_ID_APPLY_SCHEDULE = 234202408
+# One recurring weekly profile per weekday, Monday first.
+PROFILE_IDS_SCHEDULE_DAYS: tuple[int, ...] = (
+    234202401,
+    234202402,
+    234202403,
+    234202404,
+    234202405,
+    234202406,
+    234202407,
+)
+# Profiles that control charging but are not schedule time slots.
+SYSTEM_PROFILE_IDS: frozenset[int] = frozenset(
+    {
+        PROFILE_ID_MAX_POWER,
+        PROFILE_ID_BOOST,
+        PROFILE_ID_PAUSE,
+        PROFILE_ID_UK_DEFAULT,
+        PROFILE_ID_APPLY_SCHEDULE,
+    }
+)
+BOOST_DURATION_SECONDS = 10800  # Eve Connect boosts for 3 hours
+SCHEDULE_ANCHOR_YEAR_MONTH = (2024, 4)  # 2024-04-01 is a Monday
+MAX_TIMESLOTS_PER_DAY = 7
+NOMINAL_PHASE_VOLTAGE = 230
+MIN_CHARGE_CURRENT = 6
+DEFAULT_NUMBER_OF_PHASES = 3
+ACTIVE_PHASE_VOLTAGE_THRESHOLD = 80  # a phase counts as present above 80 V
+MIN_CHARGING_POWER_KW = 1.4
+
+# Property IDs used for charge control and maximum power
+PROP_MAX_STATION_CURRENT = "2062_0"
+PROP_MAX_ALLOWED_PHASES = "2189_0"
+PROP_DATE_TIME = "2059_0"
+PROP_VOLTAGES_SOCKET_1 = ("2221_3", "2221_4", "2221_5")
+PROP_SOLAR_OVERRIDE_SOCKET_1 = "3280_4"
+
+CHARGE_CONTROL_CHARGING = "charging"
+CHARGE_CONTROL_PAUSED = "paused"
+CHARGE_CONTROL_BOOST = "boost"
+
+WEEKDAYS: tuple[str, ...] = (
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+)
+
+SERVICE_SET_SCHEDULE_DAY = "set_schedule_day"
+SERVICE_ADD_SCHEDULE_TIMESLOT = "add_schedule_timeslot"
+SERVICE_CLEAR_CHARGING_SCHEDULE = "clear_charging_schedule"
+
 CONF_REFRESH_CATEGORIES = "refresh_categories"
 
 DEFAULT_REFRESH_CATEGORIES = (

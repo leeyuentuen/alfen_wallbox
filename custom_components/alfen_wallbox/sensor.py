@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import datetime
-from typing import Final
+from typing import Any, Final
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -26,7 +26,8 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from .const import CAT, ID, SERVICE_REBOOT_WALLBOX, VALUE
+from . import charging
+from .const import CAT, ID, SERVICE_REBOOT_WALLBOX, VALUE, WEEKDAYS
 from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
 
@@ -1696,6 +1697,9 @@ async def async_setup_entry(
 
     async_add_entities(sensors)
     async_add_entities([AlfenMainSensor(entry, ALFEN_SENSOR_TYPES[0])])
+    async_add_entities(
+        AlfenScheduleDaySensor(entry, day, weekday) for weekday, day in enumerate(WEEKDAYS)
+    )
 
     coordinator = entry.runtime_data
     if coordinator.device.get_number_of_sockets() == 2:
@@ -2257,3 +2261,55 @@ class AlfenSensor(AlfenEntity, SensorEntity):
     async def async_update(self):
         """Get the latest data and updates the states."""
         self._async_update_attrs()
+
+
+def _day_summary(slots: list[charging.TimeSlot]) -> dict[str, Any] | None:
+    """Summarise a day's slots; top-level keys describe the first slot."""
+    if not slots:
+        return None
+    first = slots[0].as_dict()
+    return {
+        "start": first["start"],
+        "end": first["end"],
+        "power_kw": first["power_kw"],
+        "current_a": first["current_a"],
+        "phases": first["phases"],
+        "slots": [slot.as_dict() for slot in slots],
+    }
+
+
+class AlfenScheduleDaySensor(AlfenEntity, SensorEntity):
+    """Sensor showing the charging time slots of a specific day of the week."""
+
+    _attr_icon = "mdi:calendar-today"
+
+    def __init__(self, entry: AlfenConfigEntry, day_name: str, weekday: int) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        self._weekday = weekday
+        self._attr_name = f"{device.name} Schedule {day_name}"
+        self._attr_unique_id = f"{device.id}-schedule_{day_name.lower()}"
+
+    def _slots(self) -> list[charging.TimeSlot]:
+        schedule = charging.schedule_from_profiles(self.coordinator.device.charging_profiles)
+        return schedule[self._weekday]
+
+    @property
+    def native_value(self) -> str:
+        """Return e.g. '00:00-06:00 (11.0 kW), 22:00-24:00 (7.4 kW)' or 'No schedule'."""
+        slots = self._slots()
+        if not slots:
+            return "No schedule"
+        return ", ".join(
+            f"{charging.seconds_to_hhmm(s.start)}-{charging.seconds_to_hhmm(s.end)} ({s.power_kw} kW)"
+            for s in slots
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the slots of the day."""
+        summary = _day_summary(self._slots())
+        if summary is None:
+            return {"scheduled": False, "slots": []}
+        return {"scheduled": True, **summary}

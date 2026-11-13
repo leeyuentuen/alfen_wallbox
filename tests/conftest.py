@@ -54,6 +54,17 @@ def mock_alfen_device_fixture():
         mock_device.log_id = "Test Wallbox@192.168.1.100"
         mock_device.get_licenses = MagicMock(return_value=[])
         mock_device.get_number_of_sockets = MagicMock(return_value=1)
+        # Charging profiles (charge control, max power, schedule)
+        mock_device.charging_profiles = []
+        mock_device.charging_profiles_by_id = {}
+        mock_device.charge_control = "charging"
+        mock_device.boost_ends_at = None
+        mock_device.schedule_enabled = False
+        mock_device.get_schedule = MagicMock(return_value={day: [] for day in range(7)})
+        mock_device.min_station_power = 1.4
+        mock_device.max_station_power = 22.1
+        mock_device.max_power = None
+        mock_device.active_phases = 3
         mock_device.keep_logout = False
         mock_device.get_static_properties = False
         mock_device.category_options = ["generic", "states"]

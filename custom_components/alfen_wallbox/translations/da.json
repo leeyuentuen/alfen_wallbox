@@ -172,6 +172,72 @@
                     "description": "Slutdato for transaktionsfilter."
                 }
             }
+        },
+        "set_schedule_day": {
+            "name": "Indstil plandag",
+            "description": "Erstatter alle ladetidsrum for én ugedag. En tom liste rydder dagen.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Ladeplan-kontakten."
+                },
+                "day": {
+                    "name": "Dag",
+                    "description": "Ugedag, der skal konfigureres."
+                },
+                "timeslots": {
+                    "name": "Tidsrum",
+                    "description": "Liste med start og slut (TT:MM) og valgfrit max_power (kW) eller max_current (A)."
+                }
+            }
+        },
+        "add_schedule_timeslot": {
+            "name": "Tilføj tidsrum",
+            "description": "Tilføjer et ladetidsrum til de angivne dage. Eksisterende bevares; overlappende afvises (maks. 7 pr. dag).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Ladeplan-kontakten."
+                },
+                "start_time": {
+                    "name": "Starttid",
+                    "description": "Start på tidsrummet (TT:MM)."
+                },
+                "end_time": {
+                    "name": "Sluttid",
+                    "description": "Slut på tidsrummet (TT:MM); før eller lig med start fortsætter næste dag."
+                },
+                "days": {
+                    "name": "Dage",
+                    "description": "Ugedage (standard: hver dag)."
+                },
+                "max_power": {
+                    "name": "Maks. effekt",
+                    "description": "Maksimal effekt i kW (standard: stationens maks.)."
+                },
+                "max_current": {
+                    "name": "Maks. strøm",
+                    "description": "Maksimal strøm i A (alternativ til maks. effekt)."
+                },
+                "replace": {
+                    "name": "Erstat",
+                    "description": "Erstat eksisterende tidsrum for disse dage i stedet for at tilføje."
+                }
+            }
+        },
+        "clear_charging_schedule": {
+            "name": "Ryd ladeplan",
+            "description": "Fjerner tidsrummene for de angivne dage, eller hele planen.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Ladeplan-kontakten."
+                },
+                "days": {
+                    "name": "Dage",
+                    "description": "Ugedage (standard: hver dag)."
+                }
+            }
         }
     },
     "entity": {
@@ -302,6 +368,9 @@
             },
             "heartbeat_interval": {
                 "name": "Heartbeat-interval"
+            },
+            "max_charging_power": {
+                "name": "Maksimal ladeeffekt"
             }
         },
         "select": {
@@ -319,6 +388,9 @@
             },
             "display_language": {
                 "name": "Skærmsprog"
+            },
+            "charge_control": {
+                "name": "Ladestyring"
             }
         },
         "switch": {
@@ -339,6 +411,9 @@
             },
             "proxy_enabled": {
                 "name": "Proxy aktiveret"
+            },
+            "charging_schedule_enabled": {
+                "name": "Ladeplan"
             }
         },
         "button": {

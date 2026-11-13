@@ -172,6 +172,72 @@
                     "description": "Enddatum für Transaktionsfilter."
                 }
             }
+        },
+        "set_schedule_day": {
+            "name": "Ladeplan-Tag festlegen",
+            "description": "Ersetzt alle Ladezeitfenster eines Wochentags. Eine leere Liste löscht den Tag.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Der Ladeplan-Schalter."
+                },
+                "day": {
+                    "name": "Tag",
+                    "description": "Zu konfigurierender Wochentag."
+                },
+                "timeslots": {
+                    "name": "Zeitfenster",
+                    "description": "Liste mit Start und Ende (HH:MM) und optional max_power (kW) oder max_current (A)."
+                }
+            }
+        },
+        "add_schedule_timeslot": {
+            "name": "Zeitfenster hinzufügen",
+            "description": "Fügt den angegebenen Tagen ein Ladezeitfenster hinzu. Bestehende bleiben; überlappende werden abgelehnt (max. 7 pro Tag).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Der Ladeplan-Schalter."
+                },
+                "start_time": {
+                    "name": "Startzeit",
+                    "description": "Beginn des Zeitfensters (HH:MM)."
+                },
+                "end_time": {
+                    "name": "Endzeit",
+                    "description": "Ende des Zeitfensters (HH:MM); vor oder gleich dem Start läuft bis in den nächsten Tag."
+                },
+                "days": {
+                    "name": "Tage",
+                    "description": "Wochentage (Standard: jeden Tag)."
+                },
+                "max_power": {
+                    "name": "Max. Leistung",
+                    "description": "Maximale Leistung in kW (Standard: Stationsmaximum)."
+                },
+                "max_current": {
+                    "name": "Max. Strom",
+                    "description": "Maximaler Strom in A (Alternative zur max. Leistung)."
+                },
+                "replace": {
+                    "name": "Ersetzen",
+                    "description": "Vorhandene Zeitfenster dieser Tage ersetzen statt hinzufügen."
+                }
+            }
+        },
+        "clear_charging_schedule": {
+            "name": "Ladeplan löschen",
+            "description": "Entfernt die Zeitfenster der angegebenen Tage oder den gesamten Plan.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entität",
+                    "description": "Der Ladeplan-Schalter."
+                },
+                "days": {
+                    "name": "Tage",
+                    "description": "Wochentage (Standard: jeden Tag)."
+                }
+            }
         }
     },
     "entity": {
@@ -302,6 +368,9 @@
             },
             "heartbeat_interval": {
                 "name": "Heartbeat-Intervall"
+            },
+            "max_charging_power": {
+                "name": "Maximale Ladeleistung"
             }
         },
         "select": {
@@ -319,6 +388,9 @@
             },
             "display_language": {
                 "name": "Display-Sprache"
+            },
+            "charge_control": {
+                "name": "Ladesteuerung"
             }
         },
         "switch": {
@@ -339,6 +411,9 @@
             },
             "proxy_enabled": {
                 "name": "Proxy aktiviert"
+            },
+            "charging_schedule_enabled": {
+                "name": "Ladeplan"
             }
         },
         "button": {

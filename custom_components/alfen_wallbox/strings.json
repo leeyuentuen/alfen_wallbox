@@ -172,6 +172,72 @@
                     "description": "End date for transaction filter."
                 }
             }
+        },
+        "set_schedule_day": {
+            "name": "Set schedule day",
+            "description": "Replaces all charging time slots of one weekday. An empty list clears the day.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The Charging Schedule switch."
+                },
+                "day": {
+                    "name": "Day",
+                    "description": "Weekday to configure."
+                },
+                "timeslots": {
+                    "name": "Time slots",
+                    "description": "List of slots with start and end (HH:MM) and optional max_power (kW) or max_current (A)."
+                }
+            }
+        },
+        "add_schedule_timeslot": {
+            "name": "Add schedule time slot",
+            "description": "Adds a charging time slot to the given days. Existing slots are kept; overlapping slots are rejected (max. 7 per day).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The Charging Schedule switch."
+                },
+                "start_time": {
+                    "name": "Start time",
+                    "description": "Start of the time slot (HH:MM)."
+                },
+                "end_time": {
+                    "name": "End time",
+                    "description": "End of the time slot (HH:MM); at or before the start continues into the next day."
+                },
+                "days": {
+                    "name": "Days",
+                    "description": "Weekdays (default: every day)."
+                },
+                "max_power": {
+                    "name": "Max power",
+                    "description": "Maximum power in kW (default: station maximum)."
+                },
+                "max_current": {
+                    "name": "Max current",
+                    "description": "Maximum current in A (alternative to max power)."
+                },
+                "replace": {
+                    "name": "Replace",
+                    "description": "Replace the existing slots of these days instead of adding."
+                }
+            }
+        },
+        "clear_charging_schedule": {
+            "name": "Clear charging schedule",
+            "description": "Removes the time slots of the given days, or the whole schedule.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The Charging Schedule switch."
+                },
+                "days": {
+                    "name": "Days",
+                    "description": "Weekdays (default: every day)."
+                }
+            }
         }
     },
     "entity": {
@@ -302,6 +368,9 @@
             },
             "heartbeat_interval": {
                 "name": "Heartbeat interval"
+            },
+            "max_charging_power": {
+                "name": "Maximum charging power"
             }
         },
         "select": {
@@ -319,6 +388,9 @@
             },
             "display_language": {
                 "name": "Display language"
+            },
+            "charge_control": {
+                "name": "Charge control"
             }
         },
         "switch": {
@@ -339,6 +411,9 @@
             },
             "proxy_enabled": {
                 "name": "Proxy enabled"
+            },
+            "charging_schedule_enabled": {
+                "name": "Charging schedule"
             }
         },
         "button": {
