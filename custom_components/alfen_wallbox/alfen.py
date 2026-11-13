@@ -1062,7 +1062,6 @@ class AlfenDevice:
         if weekdays is None:
             await self.clear_charging_profile(PROFILE_ID_APPLY_SCHEDULE)
         await self._refresh_after_profile_change()
-=======
     def _open_transaction_start(self, socket: str) -> tuple[datetime.datetime, float] | None:
         """Return (start, meter Wh) of an open transaction found in the log, if any.
 

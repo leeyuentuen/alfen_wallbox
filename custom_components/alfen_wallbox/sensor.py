@@ -26,10 +26,7 @@ from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from . import {
-  charging,
-  charging_insights
-}
+from . import charging, charging_insights
 from .const import CAT, ID, SERVICE_REBOOT_WALLBOX, VALUE, WEEKDAYS
 from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
@@ -1702,6 +1699,8 @@ async def async_setup_entry(
     async_add_entities([AlfenMainSensor(entry, ALFEN_SENSOR_TYPES[0])])
     async_add_entities(
         AlfenScheduleDaySensor(entry, day, weekday) for weekday, day in enumerate(WEEKDAYS)
+    )
+    async_add_entities(
         [
             AlfenChargingStatusSensor(entry),
             AlfenChargingLimitSensor(entry),

@@ -198,7 +198,6 @@ target:
 data:
   days: [Saturday, Sunday]
 ```
-
 ## Charging Insight Sensors
 
 These entities are derived from properties the integration already reads, so they need
@@ -214,7 +213,6 @@ no extra requests to the wallbox:
 | **Green Share / Session Green Share** | Solar share (%) of the current charging power and of the energy charged in the session |
 
 The solar / grid sensors are only available when a smart meter is connected to the wallbox.
-
 
 ## Services
 Example of running in Services:
