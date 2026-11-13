@@ -1,6 +1,7 @@
 """Test the Alfen Wallbox device class."""
 
 import asyncio
+import datetime
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1154,3 +1155,257 @@ async def test_device_info_without_info(alfen_device: AlfenDevice):
 
     assert device_info["model"] == "Unknown"
     assert device_info["sw_version"] == "Unknown"
+
+
+# ---------------------------------------------------------------------------
+# Charging profiles: charge control, maximum power and schedule
+# ---------------------------------------------------------------------------
+
+
+SAMPLE_PROFILE = {
+    "chargingProfileId": 1001,
+    "stackLevel": 0,
+    "chargingProfilePurpose": "TxDefaultProfile",
+    "chargingProfileKind": "Recurring",
+    "recurrencyKind": "DAILY",
+    "chargingSchedule": {
+        "chargingRateUnit": "A",
+        "duration": 7200,
+        "chargingSchedulePeriod": [
+            {"startPeriod": 72000, "limit": 16, "numberPhases": 3},
+            {"startPeriod": 79200, "limit": 0, "numberPhases": 3},
+        ],
+    },
+}
+
+
+EVE_CONNECT_PROFILE_MON = {
+    "chargingProfileId": 234202401,
+    "chargingProfileKind": "Recurring",
+    "recurrencyKind": "Weekly",
+    "chargingProfilePurpose": "ChargingStationExternalConstraints",
+    "startSchedule": "2024-04-01T00:00:00Z",
+    "stackLevel": 10,
+    "useLocalTime": True,
+    "chargingRateUnit": "A",
+    "startPeriod": [0, 1, 33300, 64800],
+    "limit": [0.0, 0.0, 15.9, 0.0],
+    "numberPhases": [1, 1, 3, 3],
+}
+
+
+def _posted(mock_post):
+    """Return (cmd, payload) for every _profile_post call."""
+    return [(call.args[0], call.args[1]) for call in mock_post.call_args_list]
+
+
+async def test_set_boost_mode_posts_eve_connect_boost_profile(alfen_device: AlfenDevice):
+    """set_boost_mode clears pause and adds the app's 3 h Absolute boost profile."""
+    alfen_device.properties = {"2062_0": {"id": "2062_0", "value": 25, "cat": "generic"}}
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value={"success": True})) as mock_post,
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+    ):
+        await alfen_device.set_boost_mode()
+
+    calls = _posted(mock_post)
+    assert calls[0] == ("chargingprofiles?clear=-12122008", None)
+    cmd, payload = calls[-1]
+    assert cmd == "chargingprofiles?add"
+    assert payload["connectorId"] == 0
+    profile = payload["csChargingProfiles"]
+    assert profile["chargingProfileId"] == -19571004
+    assert profile["chargingProfilePurpose"] == "ChargingStationExternalConstraints"
+    assert profile["chargingProfileKind"] == "Absolute"
+    assert profile["stackLevel"] == 1000
+    schedule = profile["chargingSchedule"]
+    assert schedule["duration"] == 10800
+    assert schedule["startSchedule"].endswith("Z")
+    assert schedule["chargingSchedulePeriod"][0] == {"startPeriod": 0, "limit": 25, "numberPhases": 3}
+
+
+async def test_set_boost_mode_sets_solar_override_only_when_present(alfen_device: AlfenDevice):
+    """The solar override (3280_4) is only written on wallboxes that have it."""
+    alfen_device.properties = {}
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)),
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+        patch.object(alfen_device, "set_value", new=AsyncMock()) as mock_set,
+    ):
+        await alfen_device.set_boost_mode()
+    mock_set.assert_not_called()
+
+    alfen_device.properties = {"3280_4": {"id": "3280_4", "value": 0, "cat": "generic"}}
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)),
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+        patch.object(alfen_device, "set_value", new=AsyncMock()) as mock_set,
+    ):
+        await alfen_device.set_boost_mode()
+    mock_set.assert_called_once_with("3280_4", 1)
+
+
+async def test_stop_boost_mode_clears_boost_profile(alfen_device: AlfenDevice):
+    """stop_boost_mode clears the boost profile by raw ID (?clear=<id>)."""
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value={"success": True})) as mock_post,
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+    ):
+        await alfen_device.stop_boost_mode()
+
+    assert _posted(mock_post) == [("chargingprofiles?clear=-19571004", None)]
+
+
+async def test_pause_and_resume_charging(alfen_device: AlfenDevice):
+    """Pause adds the zero-current profile; resume clears boost and pause."""
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)) as mock_post,
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+    ):
+        await alfen_device.pause_charging()
+    cmd, payload = _posted(mock_post)[-1]
+    assert cmd == "chargingprofiles?add"
+    assert payload["csChargingProfiles"]["chargingProfileId"] == -12122008
+    assert payload["csChargingProfiles"]["chargingSchedule"]["chargingSchedulePeriod"][0]["limit"] == 0
+
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)) as mock_post,
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+    ):
+        await alfen_device.resume_charging()
+    assert [cmd for cmd, _ in _posted(mock_post)] == [
+        "chargingprofiles?clear=-19571004",
+        "chargingprofiles?clear=-12122008",
+    ]
+
+
+async def test_charge_control_state_from_profiles(alfen_device: AlfenDevice):
+    """charge_control reflects the pause / boost profiles on the wallbox."""
+    alfen_device.charging_profiles_by_id = {}
+    assert alfen_device.charge_control == "charging"
+
+    alfen_device.charging_profiles_by_id = {-12122008: {"chargingProfileId": -12122008}}
+    assert alfen_device.charge_control == "paused"
+
+    now = datetime.datetime.now(datetime.UTC)
+    alfen_device.charging_profiles_by_id = {
+        -19571004: {
+            "chargingProfileId": -19571004,
+            "startSchedule": (now - datetime.timedelta(hours=1)).isoformat(),
+            "duration": 10800,
+        }
+    }
+    assert alfen_device.charge_control == "boost"
+
+    alfen_device.charging_profiles_by_id[-19571004]["startSchedule"] = (
+        now - datetime.timedelta(hours=4)
+    ).isoformat()
+    assert alfen_device.charge_control == "charging"  # boost expired
+
+
+async def test_set_max_power_posts_profile(alfen_device: AlfenDevice):
+    """set_max_power converts kW to amps on the active phases (app maths)."""
+    alfen_device.properties = {
+        "2062_0": {"id": "2062_0", "value": 32, "cat": "generic"},
+        "2221_3": {"id": "2221_3", "value": 230.1, "cat": "meter1"},
+        "2221_4": {"id": "2221_4", "value": 229.5, "cat": "meter1"},
+        "2221_5": {"id": "2221_5", "value": 231.0, "cat": "meter1"},
+    }
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)) as mock_post,
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+    ):
+        await alfen_device.set_max_power(11)
+        await alfen_device.set_max_power(2)
+
+    eleven = _posted(mock_post)[0][1]["csChargingProfiles"]
+    assert eleven["chargingProfileId"] == -19930828
+    assert eleven["chargingSchedule"]["chargingSchedulePeriod"][0] == {
+        "startPeriod": 0,
+        "limit": 15.9,
+        "numberPhases": 3,
+    }
+    two = _posted(mock_post)[1][1]["csChargingProfiles"]
+    # 2 kW is below 6 A per phase on 3 phases -> charge on one phase
+    assert two["chargingSchedule"]["chargingSchedulePeriod"][0]["numberPhases"] == 1
+    assert two["chargingSchedule"]["chargingSchedulePeriod"][0]["limit"] == 8.7
+
+
+async def test_add_schedule_slot_merges_and_validates(alfen_device: AlfenDevice):
+    """Slots are merged with existing ones; overlaps are rejected before writing."""
+    from custom_components.alfen_wallbox.alfen import ChargingProfileError
+
+    alfen_device.charging_profiles_by_id = {234202401: EVE_CONNECT_PROFILE_MON}
+    slot = alfen_device.make_timeslot(start=72000, end=79200, current=16)
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)) as mock_post,
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+    ):
+        await alfen_device.add_schedule_slot([0], slot)
+
+    cmd, payload = _posted(mock_post)[0]
+    assert cmd == "chargingprofiles?add"
+    profile = payload["csChargingProfiles"]
+    assert profile["chargingProfileId"] == 234202401
+    assert profile["stackLevel"] == 10
+    assert profile["recurrencyKind"] == "Weekly"
+    starts = [p["startPeriod"] for p in profile["chargingSchedule"]["chargingSchedulePeriod"]]
+    assert starts == [0, 1, 33300, 64800, 72000, 79200]
+
+    overlapping = alfen_device.make_timeslot(start=36000, end=40000, current=10)
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)) as mock_post,
+        pytest.raises(ChargingProfileError),
+    ):
+        await alfen_device.add_schedule_slot([0], overlapping)
+    mock_post.assert_not_called()
+
+
+async def test_replace_schedule_slot_overrides_existing(alfen_device: AlfenDevice):
+    """replace=True makes the draft slot the only slot of the selected days."""
+    from custom_components.alfen_wallbox.alfen import ChargingProfileError
+
+    alfen_device.charging_profiles_by_id = {234202401: EVE_CONNECT_PROFILE_MON}  # 09:15-18:00
+    slot = alfen_device.make_timeslot(start=36000, end=57600, current=16)  # 10:00-16:00
+
+    with pytest.raises(ChargingProfileError, match="Replace Schedule Slots"):
+        await alfen_device.add_schedule_slot([0], slot)
+
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)) as mock_post,
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+    ):
+        await alfen_device.add_schedule_slot([0], slot, replace=True)
+
+    profile = _posted(mock_post)[0][1]["csChargingProfiles"]
+    starts = [p["startPeriod"] for p in profile["chargingSchedule"]["chargingSchedulePeriod"]]
+    assert starts == [0, 1, 36000, 57600]
+
+
+async def test_add_schedule_slot_over_midnight_splits(alfen_device: AlfenDevice):
+    """A 22:00-06:00 slot on Sunday becomes Sun 22-24 and Mon 00-06."""
+    slot = alfen_device.make_timeslot(start=79200, end=21600, current=16)
+    with (
+        patch.object(alfen_device, "_profile_post", new=AsyncMock(return_value=None)) as mock_post,
+        patch.object(alfen_device, "async_update_charging_profiles", new=AsyncMock()),
+    ):
+        await alfen_device.add_schedule_slot([6], slot)
+
+    ids = [payload["csChargingProfiles"]["chargingProfileId"] for _, payload in _posted(mock_post)]
+    assert sorted(ids) == [234202401, 234202407]  # Mon 00-06 and Sun 22-24
+
+
+async def test_get_charging_profiles_skips_system_ids(alfen_device: AlfenDevice):
+    """Control profiles are cached for state but excluded from the schedule list."""
+    pause = {"version": 2, "profile": {"csChargingProfiles": {"chargingProfileId": 4282845288}}}
+    with patch.object(
+        alfen_device,
+        "_get",
+        new=AsyncMock(side_effect=[{"ChargingProfileIDs": [4282845288]}, pause]),
+    ):
+        result = await alfen_device.get_charging_profiles()
+
+    assert result == []
+    # unsigned 32-bit ID normalised to the app's signed pause profile ID
+    assert -12122008 in alfen_device.charging_profiles_by_id
+    assert alfen_device.pause_active

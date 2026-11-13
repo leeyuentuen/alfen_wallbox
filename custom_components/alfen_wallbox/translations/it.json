@@ -172,6 +172,72 @@
                     "description": "Data di fine per il filtro transazioni."
                 }
             }
+        },
+        "set_schedule_day": {
+            "name": "Imposta giorno della programmazione",
+            "description": "Sostituisce tutte le fasce di ricarica di un giorno. Una lista vuota cancella il giorno.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entità",
+                    "description": "L'interruttore Programmazione ricarica."
+                },
+                "day": {
+                    "name": "Giorno",
+                    "description": "Giorno della settimana da configurare."
+                },
+                "timeslots": {
+                    "name": "Fasce orarie",
+                    "description": "Elenco di fasce con inizio e fine (HH:MM) e facoltativo max_power (kW) o max_current (A)."
+                }
+            }
+        },
+        "add_schedule_timeslot": {
+            "name": "Aggiungi fascia oraria",
+            "description": "Aggiunge una fascia di ricarica ai giorni indicati. Quelle esistenti restano; le sovrapposte vengono rifiutate (max 7 al giorno).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entità",
+                    "description": "L'interruttore Programmazione ricarica."
+                },
+                "start_time": {
+                    "name": "Ora di inizio",
+                    "description": "Inizio della fascia (HH:MM)."
+                },
+                "end_time": {
+                    "name": "Ora di fine",
+                    "description": "Fine della fascia (HH:MM); prima o uguale all'inizio continua il giorno dopo."
+                },
+                "days": {
+                    "name": "Giorni",
+                    "description": "Giorni della settimana (predefinito: ogni giorno)."
+                },
+                "max_power": {
+                    "name": "Potenza max",
+                    "description": "Potenza massima in kW (predefinito: massimo della stazione)."
+                },
+                "max_current": {
+                    "name": "Corrente max",
+                    "description": "Corrente massima in A (alternativa alla potenza max)."
+                },
+                "replace": {
+                    "name": "Sostituisci",
+                    "description": "Sostituire le fasce esistenti di questi giorni invece di aggiungere."
+                }
+            }
+        },
+        "clear_charging_schedule": {
+            "name": "Cancella programmazione ricarica",
+            "description": "Rimuove le fasce dei giorni indicati, o l'intera programmazione.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entità",
+                    "description": "L'interruttore Programmazione ricarica."
+                },
+                "days": {
+                    "name": "Giorni",
+                    "description": "Giorni della settimana (predefinito: ogni giorno)."
+                }
+            }
         }
     },
     "entity": {
@@ -332,6 +398,9 @@
             },
             "heartbeat_interval": {
                 "name": "Intervallo heartbeat"
+            },
+            "max_charging_power": {
+                "name": "Potenza di ricarica massima"
             }
         },
         "select": {
@@ -349,6 +418,9 @@
             },
             "display_language": {
                 "name": "Lingua display"
+            },
+            "charge_control": {
+                "name": "Controllo ricarica"
             }
         },
         "switch": {
@@ -369,6 +441,9 @@
             },
             "proxy_enabled": {
                 "name": "Proxy abilitato"
+            },
+            "charging_schedule_enabled": {
+                "name": "Programmazione ricarica"
             }
         },
         "button": {

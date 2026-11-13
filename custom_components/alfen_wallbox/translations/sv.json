@@ -172,6 +172,72 @@
                     "description": "Slutdatum för transaktionsfilter."
                 }
             }
+        },
+        "set_schedule_day": {
+            "name": "Ställ in schemadag",
+            "description": "Ersätter alla laddningsfönster för en veckodag. En tom lista rensar dagen.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Laddschema-brytaren."
+                },
+                "day": {
+                    "name": "Dag",
+                    "description": "Veckodag som ska konfigureras."
+                },
+                "timeslots": {
+                    "name": "Tidsfönster",
+                    "description": "Lista med start och slut (HH:MM) och valfritt max_power (kW) eller max_current (A)."
+                }
+            }
+        },
+        "add_schedule_timeslot": {
+            "name": "Lägg till tidsfönster",
+            "description": "Lägger till ett laddningsfönster för angivna dagar. Befintliga behålls; överlappande avvisas (max 7 per dag).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Laddschema-brytaren."
+                },
+                "start_time": {
+                    "name": "Starttid",
+                    "description": "Start för tidsfönstret (HH:MM)."
+                },
+                "end_time": {
+                    "name": "Sluttid",
+                    "description": "Slut för tidsfönstret (HH:MM); före eller lika med starten fortsätter nästa dag."
+                },
+                "days": {
+                    "name": "Dagar",
+                    "description": "Veckodagar (standard: varje dag)."
+                },
+                "max_power": {
+                    "name": "Maxeffekt",
+                    "description": "Maximal effekt i kW (standard: stationens max)."
+                },
+                "max_current": {
+                    "name": "Maxström",
+                    "description": "Maximal ström i A (alternativ till maxeffekt)."
+                },
+                "replace": {
+                    "name": "Ersätt",
+                    "description": "Ersätt befintliga tidsfönster för dessa dagar i stället för att lägga till."
+                }
+            }
+        },
+        "clear_charging_schedule": {
+            "name": "Rensa laddschema",
+            "description": "Tar bort tidsfönstren för angivna dagar, eller hela schemat.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entitet",
+                    "description": "Laddschema-brytaren."
+                },
+                "days": {
+                    "name": "Dagar",
+                    "description": "Veckodagar (standard: varje dag)."
+                }
+            }
         }
     },
     "entity": {
@@ -332,6 +398,9 @@
             },
             "heartbeat_interval": {
                 "name": "Heartbeat-intervall"
+            },
+            "max_charging_power": {
+                "name": "Maximal laddeffekt"
             }
         },
         "select": {
@@ -349,6 +418,9 @@
             },
             "display_language": {
                 "name": "Displayspråk"
+            },
+            "charge_control": {
+                "name": "Laddstyrning"
             }
         },
         "switch": {
@@ -369,6 +441,9 @@
             },
             "proxy_enabled": {
                 "name": "Proxy aktiverad"
+            },
+            "charging_schedule_enabled": {
+                "name": "Laddschema"
             }
         },
         "button": {

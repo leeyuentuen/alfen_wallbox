@@ -5,16 +5,24 @@ from typing import Any, Final
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_platform
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import ExtraStoredData, RestoreEntity
+import voluptuous as vol
 
+from . import charging
+from .alfen import ChargingProfileError
 from .const import (
     CAT,
     LICENSE_HIGH_POWER,
+    SERVICE_ADD_SCHEDULE_TIMESLOT,
+    SERVICE_CLEAR_CHARGING_SCHEDULE,
     SERVICE_DISABLE_PHASE_SWITCHING,
     SERVICE_ENABLE_PHASE_SWITCHING,
+    SERVICE_SET_SCHEDULE_DAY,
     VALUE,
+    WEEKDAYS,
 )
 from .coordinator import AlfenConfigEntry
 from .entity import AlfenEntity
@@ -121,6 +129,7 @@ async def async_setup_entry(
     switches: list[AlfenEntity] = [
         AlfenSwitchSensor(entry, description) for description in ALFEN_SWITCH_TYPES
     ]
+    switches.append(AlfenChargingScheduleSwitch(entry))
     switches.append(AlfenChargingSwitch(entry))
 
     async_add_entities(switches)
@@ -137,6 +146,41 @@ async def async_setup_entry(
             SERVICE_DISABLE_PHASE_SWITCHING,
             {},
             "async_disable_phase_switching",
+        )
+
+        # Weekly charging schedule (target: the Charging Schedule switch)
+        timeslot = vol.Schema(
+            {
+                vol.Required("start"): cv.string,
+                vol.Required("end"): cv.string,
+                vol.Optional("max_power"): vol.All(vol.Coerce(float), vol.Range(min=1.4, max=44)),
+                vol.Optional("max_current"): vol.All(vol.Coerce(float), vol.Range(min=1, max=80)),
+            }
+        )
+        platform.async_register_entity_service(
+            SERVICE_SET_SCHEDULE_DAY,
+            {
+                vol.Required("day"): vol.In(WEEKDAYS),
+                vol.Optional("timeslots", default=[]): vol.All(cv.ensure_list, [timeslot]),
+            },
+            "async_set_schedule_day",
+        )
+        platform.async_register_entity_service(
+            SERVICE_ADD_SCHEDULE_TIMESLOT,
+            {
+                vol.Required("start_time"): cv.string,
+                vol.Required("end_time"): cv.string,
+                vol.Optional("days", default=[]): vol.All(cv.ensure_list, [vol.In(WEEKDAYS)]),
+                vol.Optional("max_power"): vol.All(vol.Coerce(float), vol.Range(min=1.4, max=44)),
+                vol.Optional("max_current"): vol.All(vol.Coerce(float), vol.Range(min=1, max=80)),
+                vol.Optional("replace", default=False): cv.boolean,
+            },
+            "async_add_schedule_timeslot",
+        )
+        platform.async_register_entity_service(
+            SERVICE_CLEAR_CHARGING_SCHEDULE,
+            {vol.Optional("days", default=[]): vol.All(cv.ensure_list, [vol.In(WEEKDAYS)])},
+            "async_clear_charging_schedule",
         )
 
 
@@ -285,3 +329,86 @@ class AlfenChargingSwitch(AlfenEntity, SwitchEntity, RestoreEntity):
         """Return the maximum station current reported by the wallbox."""
         prop = self.coordinator.device.properties.get(MAX_STATION_CURRENT_API_PARAM)
         return int(prop[VALUE]) if prop else PAUSE_CURRENT
+
+
+class AlfenChargingScheduleSwitch(AlfenEntity, SwitchEntity):
+    """Apply the weekly charging schedule.
+
+    When on, the wallbox only charges inside the configured time slots. The
+    attributes list the slots per weekday; the schedule services act on this entity.
+    """
+
+    _attr_icon = "mdi:calendar-clock"
+    _attr_translation_key = "charging_schedule_enabled"
+
+    def __init__(self, entry: AlfenConfigEntry) -> None:
+        """Initialize."""
+        super().__init__(entry)
+        device = self.coordinator.device
+        self._attr_name = f"{device.name} Charging Schedule"
+        self._attr_unique_id = f"{device.id}_charging_schedule_enabled"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True when the schedule is applied."""
+        return self.coordinator.device.schedule_enabled
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the slots per day so cards can show the schedule."""
+        schedule = self.coordinator.device.get_schedule()
+        return {
+            WEEKDAYS[day].lower(): [slot.as_dict() for slot in slots]
+            for day, slots in schedule.items()
+        }
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Only charge inside the scheduled time slots."""
+        await self.coordinator.device.set_schedule_enabled(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Charge at any time again."""
+        await self.coordinator.device.set_schedule_enabled(False)
+
+    def _slot(self, start: str, end: str, max_power: float | None, max_current: float | None):
+        return self.coordinator.device.make_timeslot(
+            start=charging.hhmm_to_seconds(start),
+            end=charging.hhmm_to_seconds(end),
+            power_kw=max_power,
+            current=max_current if max_power is None else None,
+        )
+
+    async def async_set_schedule_day(self, day: str, timeslots: list[dict[str, Any]]) -> None:
+        """Replace all time slots of one weekday (an empty list clears it)."""
+        try:
+            slots = [
+                self._slot(item["start"], item["end"], item.get("max_power"), item.get("max_current"))
+                for item in timeslots
+            ]
+            await self.coordinator.device.set_schedule_day(WEEKDAYS.index(day), slots)
+        except (ChargingProfileError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
+    async def async_add_schedule_timeslot(
+        self,
+        start_time: str,
+        end_time: str,
+        days: list[str] | None = None,
+        max_power: float | None = None,
+        max_current: float | None = None,
+        replace: bool = False,
+    ) -> None:
+        """Add a time slot to the given days (every day when empty)."""
+        weekdays = [WEEKDAYS.index(day) for day in days] if days else list(range(7))
+        try:
+            await self.coordinator.device.add_schedule_slot(
+                weekdays, self._slot(start_time, end_time, max_power, max_current), replace=replace
+            )
+        except (ChargingProfileError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
+    async def async_clear_charging_schedule(self, days: list[str] | None = None) -> None:
+        """Remove the time slots of the given days (the whole schedule when empty)."""
+        await self.coordinator.device.clear_schedule(
+            [WEEKDAYS.index(day) for day in days] if days else None
+        )

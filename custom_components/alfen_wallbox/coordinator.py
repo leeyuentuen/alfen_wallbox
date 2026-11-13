@@ -19,6 +19,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .alfen import AlfenDevice
 from .const import (
@@ -134,6 +135,10 @@ class AlfenCoordinator(DataUpdateCoordinator[None]):
             self.entry.options.get(CONF_CATEGORY_FETCH_DELAY, DEFAULT_CATEGORY_FETCH_DELAY),
         )
         # Set callback for session recreation after logout
+        # Weekly schedule profiles are anchored on local midnight
+        self.device.timezone = dt_util.get_default_time_zone()
+        # Push charge-control / schedule changes to entities right away
+        self.device._state_changed_callback = self.async_update_listeners
         self.device._session_recreate_callback = lambda: self._recreate_session()
         if not await self.async_connect():
             raise UpdateFailed("Error communicating with API")

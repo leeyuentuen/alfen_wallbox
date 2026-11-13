@@ -8,6 +8,7 @@ from collections import deque
 from collections.abc import Callable
 import datetime
 import hashlib
+from itertools import pairwise
 import json
 import logging
 import re
@@ -18,6 +19,8 @@ from urllib.parse import urlencode
 
 from aiohttp import ClientSession, ClientTimeout
 
+from . import charging
+from .charging import TimeSlot
 from .charging_insights import ChargingSession
 from .const import (
     ALFEN_PRODUCT_MAP,
@@ -27,6 +30,10 @@ from .const import (
     CAT_STATES,
     CAT_TRANSACTIONS,
     CATEGORIES,
+    CHARGE_CONTROL_BOOST,
+    CHARGE_CONTROL_CHARGING,
+    CHARGE_CONTROL_PAUSED,
+    CHARGING_PROFILES,
     CMD,
     COMMAND_CLEAR_TRANSACTIONS,
     COMMAND_REBOOT,
@@ -37,19 +44,39 @@ from .const import (
     LICENSES,
     LOGIN,
     LOGOUT,
+    MAX_TIMESLOTS_PER_DAY,
     METHOD_GET,
+    MIN_CHARGING_POWER_KW,
     OFFSET,
     PARAM_COMMAND,
     PARAM_DISPLAY_NAME,
     PARAM_PASSWORD,
     PARAM_USERNAME,
+    PROFILE_ID_APPLY_SCHEDULE,
+    PROFILE_ID_BOOST,
+    PROFILE_ID_MAX_POWER,
+    PROFILE_ID_PAUSE,
+    PROFILE_IDS_SCHEDULE_DAYS,
     PROP,
+    PROP_DATE_TIME,
+    PROP_MAX_ALLOWED_PHASES,
+    PROP_MAX_STATION_CURRENT,
+    PROP_SOLAR_OVERRIDE_SOCKET_1,
+    PROP_VOLTAGES_SOCKET_1,
     PROPERTIES,
+    SYSTEM_PROFILE_IDS,
     TOTAL,
     VALUE,
 )
 
 POST_HEADER_JSON = {"Content-Type": "application/json"}
+
+# Charging profiles are refreshed every this many update cycles (~5 min at 20 s)
+PROFILE_REFRESH_INTERVAL = 15
+
+
+class ChargingProfileError(Exception):
+    """Raised when a charging-profile request cannot be fulfilled."""
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -135,6 +162,15 @@ class AlfenDevice:
         self.keep_logout = False
         self.max_allowed_phases = 1
         self.latest_tag: dict[tuple[str, str, str], Any] | None = None
+        # Charging profiles: charging_profiles_by_id holds every profile on the
+        # wallbox, charging_profiles only the schedule (time slot) profiles.
+        self.charging_profiles_by_id: dict[int, dict] = {}
+        self.charging_profiles: list[dict] = []
+        self.profile_refresh_counter = -1  # -1: fetch in the first update cycle
+        # Timezone used to anchor the weekly schedule profiles (set by the coordinator)
+        self.timezone: datetime.tzinfo = datetime.UTC
+        # Callback to push profile changes to entities without a full update cycle
+        self._state_changed_callback: Callable[[], Any] | None = None
         # Current (or last) charging session of socket 1
         self.session = ChargingSession()
         self.transaction_offset = 0
@@ -625,7 +661,14 @@ class AlfenDevice:
             # 6. Build/update properties dict
             self._build_properties_dict(dynamic_properties)
 
-            # 7. Fetch logs and transactions (according to schedule)
+            # 7. Refresh the charging profiles (charge control, max power, schedule)
+            self.profile_refresh_counter = (
+                self.profile_refresh_counter + 1
+            ) % PROFILE_REFRESH_INTERVAL
+            if self.profile_refresh_counter == 0:
+                await self.async_update_charging_profiles()
+
+            # 7b. Fetch logs and transactions (according to schedule)
             await self._fetch_logs_and_transactions()
 
             # 8. Track the current charging session
@@ -641,6 +684,384 @@ class AlfenDevice:
 
             return True
 
+    # Charging profiles (Eve Connect compatible)
+    # ------------------------------------------------------------------
+
+    async def _fetch_all_charging_profiles(self) -> dict[int, dict] | None:
+        """Fetch every charging profile stored on the wallbox, keyed by ID."""
+        id_list_response = await self._get(url=self.__get_url(f"{CHARGING_PROFILES}?id_list"))
+        if not isinstance(id_list_response, dict):
+            return None
+
+        profiles: dict[int, dict] = {}
+        for raw_id in id_list_response.get("ChargingProfileIDs", []):
+            profile_id = charging.normalize_profile_id(raw_id)
+            if profile_id is None:
+                continue
+            response = await self._get(url=self.__get_url(f"{CHARGING_PROFILES}?cpid={profile_id}"))
+            profile = charging.unwrap_profile(response)
+            if profile is not None:
+                profile.setdefault("chargingProfileId", profile_id)
+                profiles[profile_id] = profile
+                _LOGGER.debug("[%s] Charging profile %s: %s", self.log_id, profile_id, json.dumps(profile))
+        return profiles
+
+    async def get_charging_profiles(self) -> list[dict]:
+        """Return the schedule profiles (time slots), excluding control profiles.
+
+        Control profiles (max power, boost, pause, apply-schedule) are kept in
+        ``charging_profiles_by_id`` and exposed through dedicated properties.
+        """
+        profiles = await self._fetch_all_charging_profiles()
+        if profiles is None:
+            return []
+        self.charging_profiles_by_id = profiles
+        return self._schedule_profiles()
+
+    def _schedule_profiles(self) -> list[dict]:
+        return [
+            profile
+            for profile_id, profile in self.charging_profiles_by_id.items()
+            if profile_id not in SYSTEM_PROFILE_IDS
+        ]
+
+    async def async_update_charging_profiles(self) -> None:
+        """Fetch and cache all charging profiles."""
+        try:
+            self.charging_profiles = await self.get_charging_profiles()
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.debug("[%s] Failed to fetch charging profiles", self.log_id, exc_info=True)
+
+    async def _refresh_after_profile_change(self) -> None:
+        """Re-read profiles after a change and push the new state to entities."""
+        await self.async_update_charging_profiles()
+        if self._state_changed_callback:
+            self._state_changed_callback()
+
+    async def _profile_post(self, cmd: str, payload: dict[str, Any] | None) -> str:
+        """POST a charging-profile request and report the real outcome.
+
+        Unlike ``_post`` (which returns None both on success with an empty body
+        and on failure), this raises ChargingProfileError when the wallbox does
+        not accept the request. A 401 (the wallbox drops the session after a
+        burst of writes) triggers one re-login and a retry.
+        """
+        if self.keep_logout:
+            raise ChargingProfileError("Logged out from the wallbox (press HTTPS API Login)")
+        _LOGGER.debug("[%s] POST %s %s", self.log_id, cmd, json.dumps(payload) if payload else "")
+        last_status, last_body = 0, ""
+        for attempt in range(3):
+            if not self.logged_in:
+                await self.login()
+                if not self.logged_in:
+                    raise ChargingProfileError("Could not log in to the wallbox")
+            try:
+                async with self._lock, self._session.post(
+                    url=self.__get_url(cmd),
+                    json=payload,
+                    headers=self._auth_headers(POST_HEADER_JSON),
+                    timeout=ClientTimeout(total=DEFAULT_TIMEOUT),
+                    ssl=self.ssl,
+                ) as response:
+                    last_status = response.status
+                    last_body = (await response.text())[:300]
+            except TimeoutError as err:
+                raise ChargingProfileError("Timeout talking to the wallbox") from err
+            except Exception as err:  # pylint: disable=broad-except
+                raise ChargingProfileError(
+                    f"Request to the wallbox failed: {self._sanitize_exception(err)}"
+                ) from err
+            _LOGGER.debug(
+                "[%s] POST %s -> %s %s (attempt %d)", self.log_id, cmd, last_status, last_body, attempt + 1
+            )
+            if 200 <= last_status < 300:
+                return last_body
+            if last_status == 401:
+                self.logged_in = False
+                continue
+            if last_status == 400 and attempt == 0:
+                # Seen on the first request after a re-login: retry once
+                await asyncio.sleep(1)
+                continue
+            break
+        raise ChargingProfileError(
+            f"Wallbox rejected {cmd.split('?', 1)[-1]} (HTTP {last_status}) {last_body}".strip()
+        )
+
+    async def add_charging_profile(self, profile: dict[str, Any]) -> str:
+        """Add (or replace, when the ID exists) a charging profile."""
+        return await self._profile_post(
+            f"{CHARGING_PROFILES}?add", charging.wrap_profile_request(profile)
+        )
+
+    async def clear_charging_profile(self, profile_id: int) -> None:
+        """Remove a single charging profile by ID."""
+        await self._profile_post(f"{CHARGING_PROFILES}?clear={int(profile_id)}", None)
+
+    async def clear_charging_profiles(self) -> None:
+        """Clear ALL charging profiles (schedule, max power, boost and pause)."""
+        await self._profile_post(f"{CHARGING_PROFILES}?clear=all", None)
+        await self._refresh_after_profile_change()
+
+    async def _clear_profiles(self, *profile_ids: int) -> None:
+        """Clear several profiles by ID."""
+        for profile_id in profile_ids:
+            await self.clear_charging_profile(profile_id)
+
+    async def _set_solar_override(self, enabled: bool) -> None:
+        """Boost sets the solar override (3280_4), charge / pause clear it."""
+        prop = self.properties.get(PROP_SOLAR_OVERRIDE_SOCKET_1)
+        if prop is None:
+            return  # no solar charging on this wallbox; never queue unknown props
+        target = 1 if enabled else 0
+        try:
+            if int(prop[VALUE]) == target:
+                return
+        except (TypeError, ValueError):
+            pass
+        await self.set_value(PROP_SOLAR_OVERRIDE_SOCKET_1, target)
+
+    # --- charge control (charging / paused / boost) --------------------
+
+    @property
+    def boost_profile(self) -> dict | None:
+        """Return the boost profile when one is stored on the wallbox."""
+        return self.charging_profiles_by_id.get(PROFILE_ID_BOOST)
+
+    @property
+    def boost_active(self) -> bool:
+        """Return True while a (non-expired) boost is running."""
+        if PROFILE_ID_BOOST not in self.charging_profiles_by_id:
+            return False
+        end = charging.boost_end(self.boost_profile)
+        return end is None or end > datetime.datetime.now(datetime.UTC)
+
+    @property
+    def boost_ends_at(self) -> datetime.datetime | None:
+        """Return when the active boost ends (UTC)."""
+        return charging.boost_end(self.boost_profile) if self.boost_active else None
+
+    @property
+    def pause_active(self) -> bool:
+        """Return True while charging is paused."""
+        return PROFILE_ID_PAUSE in self.charging_profiles_by_id
+
+    @property
+    def charge_control(self) -> str:
+        """Return the charge-control state: charging, paused or boost."""
+        if self.pause_active:
+            return CHARGE_CONTROL_PAUSED
+        if self.boost_active:
+            return CHARGE_CONTROL_BOOST
+        return CHARGE_CONTROL_CHARGING
+
+    def _boost_current(self) -> float:
+        """Return the boost current: the station maximum (fallback 32 A)."""
+        prop = self.properties.get(PROP_MAX_STATION_CURRENT)
+        try:
+            value = float(prop[VALUE]) if prop else 0
+        except (TypeError, ValueError):
+            value = 0
+        return value if value > 0 else 32
+
+    def _wallbox_time(self) -> datetime.datetime:
+        """Return the wallbox clock (2059_0, ms since epoch) or HA's UTC clock."""
+        value = self.properties.get(PROP_DATE_TIME, {}).get(VALUE)
+        try:
+            return datetime.datetime.fromtimestamp(int(value) / 1000, tz=datetime.UTC)
+        except (TypeError, ValueError, OverflowError, OSError):
+            return datetime.datetime.now(datetime.UTC)
+
+    async def set_boost_mode(self) -> None:
+        """Charge at full power for 3 hours, overriding solar and schedule limits."""
+        await self._set_solar_override(True)
+        await self._clear_profiles(PROFILE_ID_PAUSE)
+        await self.add_charging_profile(
+            charging.build_boost_request(self._boost_current(), self._wallbox_time())
+        )
+        await self._refresh_after_profile_change()
+
+    async def stop_boost_mode(self) -> None:
+        """Stop boosting and return to the preferred / scheduled power."""
+        await self._set_solar_override(False)
+        await self._clear_profiles(PROFILE_ID_BOOST)
+        await self._refresh_after_profile_change()
+
+    async def pause_charging(self) -> None:
+        """Pause the current charging session."""
+        await self._set_solar_override(False)
+        await self._clear_profiles(PROFILE_ID_BOOST)
+        await self.add_charging_profile(charging.build_pause_request())
+        await self._refresh_after_profile_change()
+
+    async def resume_charging(self) -> None:
+        """Resume charging: clear pause and boost."""
+        await self._set_solar_override(False)
+        await self._clear_profiles(PROFILE_ID_BOOST, PROFILE_ID_PAUSE)
+        await self._refresh_after_profile_change()
+
+    async def set_charge_control(self, mode: str) -> None:
+        """Switch between charging, paused and boost."""
+        if mode == CHARGE_CONTROL_PAUSED:
+            await self.pause_charging()
+        elif mode == CHARGE_CONTROL_BOOST:
+            await self.set_boost_mode()
+        elif mode == CHARGE_CONTROL_CHARGING:
+            await self.resume_charging()
+        else:
+            raise ValueError(f"Unknown charge control mode: {mode}")
+
+    # --- preferred maximum power  ---------------------------
+
+    @property
+    def active_phases(self) -> int:
+        """Return the number of phases present at socket 1."""
+        voltages = [
+            self.properties[prop_id][VALUE]
+            for prop_id in PROP_VOLTAGES_SOCKET_1
+            if prop_id in self.properties
+        ]
+        fallback = self.properties.get(PROP_MAX_ALLOWED_PHASES, {}).get(VALUE)
+        return charging.active_phases(voltages, fallback)
+
+    @property
+    def max_station_power(self) -> float:
+        """Return the station's maximum power in kW."""
+        return charging.current_to_power(self._boost_current(), self.active_phases)
+
+    @property
+    def min_station_power(self) -> float:
+        """Return the lowest power that still allows charging (6 A, one phase)."""
+        return MIN_CHARGING_POWER_KW
+
+    @property
+    def max_power(self) -> float | None:
+        """Return the preferred maximum power in kW (None = not limited)."""
+        return charging.max_power_from_profile(self.charging_profiles_by_id.get(PROFILE_ID_MAX_POWER))
+
+    async def set_max_power(self, power_kw: float) -> None:
+        """Store the preferred maximum charging power, like the app's slider."""
+        power_kw = max(self.min_station_power, min(float(power_kw), self.max_station_power))
+        amps, phases = charging.power_to_current(power_kw, self.active_phases)
+        await self.add_charging_profile(charging.build_max_power_request(amps, phases))
+        await self._refresh_after_profile_change()
+
+    # --- weekly schedule  --------------------------------
+
+    @property
+    def schedule_enabled(self) -> bool:
+        """Return True when charging is restricted to the scheduled time slots."""
+        return PROFILE_ID_APPLY_SCHEDULE in self.charging_profiles_by_id
+
+    def get_schedule(self) -> dict[int, list[TimeSlot]]:
+        """Return the time slots per weekday (0=Monday)."""
+        return charging.schedule_from_profiles(self._schedule_profiles())
+
+    def _schedule_day_slots(self, weekday: int) -> list[TimeSlot]:
+        profile = self.charging_profiles_by_id.get(PROFILE_IDS_SCHEDULE_DAYS[weekday])
+        return charging.profile_slots(profile) if profile else []
+
+    async def set_schedule_enabled(self, enabled: bool) -> None:
+        """Enable / disable the schedule (the app's "Apply schedule" toggle)."""
+        if enabled:
+            await self.add_charging_profile(charging.build_apply_schedule_request())
+        else:
+            await self.clear_charging_profile(PROFILE_ID_APPLY_SCHEDULE)
+        await self._refresh_after_profile_change()
+
+    async def set_schedule_day(self, weekday: int, slots: list[TimeSlot], refresh: bool = True) -> None:
+        """Replace all time slots of one weekday (empty list clears the day)."""
+        validate_slots(slots)
+        if slots:
+            await self.add_charging_profile(
+                charging.build_schedule_day_request(weekday, slots, self.timezone)
+            )
+        elif PROFILE_IDS_SCHEDULE_DAYS[weekday] in self.charging_profiles_by_id:
+            await self.clear_charging_profile(PROFILE_IDS_SCHEDULE_DAYS[weekday])
+        if refresh:
+            await self._refresh_after_profile_change()
+
+    def make_timeslot(
+        self,
+        start: int,
+        end: int,
+        power_kw: float | None = None,
+        current: float | None = None,
+    ) -> TimeSlot:
+        """Create a slot from a power (kW, like the app) or a current (A).
+
+        The current is capped at the station maximum (2062_0), like the app's
+        power slider, so a slot never asks for more than the station allows.
+        """
+        if end == 0:
+            end = charging.SECONDS_PER_DAY
+        max_current = self._boost_current()
+        if current is not None:
+            phases = self.active_phases
+            if current < 6:
+                phases = 1
+            return TimeSlot(start=start, end=end, amps=min(float(current), max_current), phases=phases)
+        power = self.max_station_power if power_kw is None else float(power_kw)
+        amps, phases = charging.power_to_current(power, self.active_phases)
+        return TimeSlot(start=start, end=end, amps=min(amps, max_current), phases=phases)
+
+    async def add_schedule_slot(
+        self, weekdays: list[int], slot: TimeSlot, replace: bool = False
+    ) -> None:
+        """Add a time slot to each given weekday.
+
+        By default the existing slots are kept (overlaps are rejected). With
+        ``replace=True`` the given weekdays get only this slot.
+
+        A slot crossing midnight is split into an evening part and a part on the
+        next day, which is how the app's "extend to the next day" works. That
+        next-day part is merged with the next day's slots unless that day is
+        being replaced too.
+        """
+        parts = [part for weekday in weekdays for part in charging.split_slot(weekday, slot)]
+
+        new_slots: dict[int, list[TimeSlot]] = {}
+        for weekday, part in parts:
+            existing = [] if replace and weekday in weekdays else self._schedule_day_slots(weekday)
+            new_slots.setdefault(weekday, list(existing)).append(part)
+        for slots in new_slots.values():
+            try:
+                validate_slots(slots)  # validate everything before writing anything
+            except ChargingProfileError as err:
+                if "conflicts" in str(err) and not replace:
+                    raise ChargingProfileError(
+                        f"{err}. Use 'Replace Schedule Slots' (or clear the day first) "
+                        "to change an existing time slot"
+                    ) from err
+                raise
+        await self.apply_schedule(new_slots)
+
+    def schedule_day_slots(self, weekday: int) -> list[TimeSlot]:
+        """Return the slots of one weekday's Eve Connect day profile."""
+        return self._schedule_day_slots(weekday)
+
+    async def apply_schedule(self, days: dict[int, list[TimeSlot]]) -> None:
+        """Write new slot lists for several weekdays.
+
+        Everything is validated before the first write, so an invalid change
+        never leaves the schedule half-updated. Unchanged days are skipped.
+        """
+        for slots in days.values():
+            validate_slots(slots)
+        for weekday, slots in sorted(days.items()):
+            if sorted(slots, key=lambda s: s.start) == self._schedule_day_slots(weekday):
+                continue
+            await self.set_schedule_day(weekday, slots, refresh=False)
+        await self._refresh_after_profile_change()
+
+    async def clear_schedule(self, weekdays: list[int] | None = None) -> None:
+        """Remove the slots of the given weekdays (all days and the toggle if None)."""
+        days = range(7) if weekdays is None else weekdays
+        for weekday in days:
+            await self.clear_charging_profile(PROFILE_IDS_SCHEDULE_DAYS[weekday])
+        if weekdays is None:
+            await self.clear_charging_profile(PROFILE_ID_APPLY_SCHEDULE)
+        await self._refresh_after_profile_change()
     def _open_transaction_start(self, socket: str) -> tuple[datetime.datetime, float] | None:
         """Return (start, meter Wh) of an open transaction found in the log, if any.
 
@@ -1689,6 +2110,32 @@ class AlfenDevice:
     def __get_url(self, action) -> str:
         """Get the URL for the API."""
         return f"https://{self.host}/api/{action}"
+
+
+def validate_slots(slots: list[TimeSlot]) -> None:
+    """Validate the time slots of one day.
+
+    Raises ChargingProfileError for invalid, overlapping or too many slots.
+    """
+    if len(slots) > MAX_TIMESLOTS_PER_DAY:
+        raise ChargingProfileError(f"A day can have at most {MAX_TIMESLOTS_PER_DAY} time slots")
+    ordered = sorted(slots, key=lambda slot: slot.start)
+    for slot in ordered:
+        if not 0 <= slot.start < slot.end <= charging.SECONDS_PER_DAY:
+            raise ChargingProfileError(
+                f"Invalid time slot {charging.seconds_to_hhmm(slot.start)}-"
+                f"{charging.seconds_to_hhmm(slot.end)}"
+            )
+        if slot.amps <= 0:
+            raise ChargingProfileError("A time slot needs a power above 0")
+    for previous, current in pairwise(ordered):
+        if previous.overlaps(current):
+            raise ChargingProfileError(
+                f"Time slot {charging.seconds_to_hhmm(current.start)}-"
+                f"{charging.seconds_to_hhmm(current.end)} conflicts with "
+                f"{charging.seconds_to_hhmm(previous.start)}-"
+                f"{charging.seconds_to_hhmm(previous.end)}"
+            )
 
 
 class AlfenDeviceInfo:

@@ -172,6 +172,72 @@
                     "description": "Fecha de fin para el filtro de transacciones."
                 }
             }
+        },
+        "set_schedule_day": {
+            "name": "Establecer día de la programación",
+            "description": "Reemplaza todas las franjas de carga de un día. Una lista vacía borra el día.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "El interruptor Programación de carga."
+                },
+                "day": {
+                    "name": "Día",
+                    "description": "Día de la semana a configurar."
+                },
+                "timeslots": {
+                    "name": "Franjas",
+                    "description": "Lista de franjas con inicio y fin (HH:MM) y opcionalmente max_power (kW) o max_current (A)."
+                }
+            }
+        },
+        "add_schedule_timeslot": {
+            "name": "Añadir franja",
+            "description": "Añade una franja de carga a los días indicados. Se mantienen las existentes; las solapadas se rechazan (máx. 7 por día).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "El interruptor Programación de carga."
+                },
+                "start_time": {
+                    "name": "Hora de inicio",
+                    "description": "Inicio de la franja (HH:MM)."
+                },
+                "end_time": {
+                    "name": "Hora de fin",
+                    "description": "Fin de la franja (HH:MM); antes o igual al inicio continúa al día siguiente."
+                },
+                "days": {
+                    "name": "Días",
+                    "description": "Días de la semana (por defecto: todos los días)."
+                },
+                "max_power": {
+                    "name": "Potencia máx.",
+                    "description": "Potencia máxima en kW (por defecto: máximo del cargador)."
+                },
+                "max_current": {
+                    "name": "Corriente máx.",
+                    "description": "Corriente máxima en A (alternativa a la potencia máx.)."
+                },
+                "replace": {
+                    "name": "Reemplazar",
+                    "description": "Reemplazar las franjas existentes de estos días en lugar de añadir."
+                }
+            }
+        },
+        "clear_charging_schedule": {
+            "name": "Borrar programación de carga",
+            "description": "Elimina las franjas de los días indicados, o toda la programación.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entidad",
+                    "description": "El interruptor Programación de carga."
+                },
+                "days": {
+                    "name": "Días",
+                    "description": "Días de la semana (por defecto: todos los días)."
+                }
+            }
         }
     },
     "entity": {
@@ -332,6 +398,9 @@
             },
             "heartbeat_interval": {
                 "name": "Intervalo heartbeat"
+            },
+            "max_charging_power": {
+                "name": "Potencia de carga máxima"
             }
         },
         "select": {
@@ -349,6 +418,9 @@
             },
             "display_language": {
                 "name": "Idioma de pantalla"
+            },
+            "charge_control": {
+                "name": "Control de carga"
             }
         },
         "switch": {
@@ -369,6 +441,9 @@
             },
             "proxy_enabled": {
                 "name": "Proxy activado"
+            },
+            "charging_schedule_enabled": {
+                "name": "Programación de carga"
             }
         },
         "button": {

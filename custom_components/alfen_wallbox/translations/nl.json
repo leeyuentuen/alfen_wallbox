@@ -172,6 +172,72 @@
                     "description": "Einddatum voor transactiefilter."
                 }
             }
+        },
+        "set_schedule_day": {
+            "name": "Schemadag instellen",
+            "description": "Vervangt alle laadtijdsloten van één weekdag. Een lege lijst wist de dag.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De Laadschema-schakelaar."
+                },
+                "day": {
+                    "name": "Dag",
+                    "description": "Weekdag om te configureren."
+                },
+                "timeslots": {
+                    "name": "Tijdsloten",
+                    "description": "Lijst met sloten met start en einde (UU:MM) en optioneel max_power (kW) of max_current (A)."
+                }
+            }
+        },
+        "add_schedule_timeslot": {
+            "name": "Tijdslot toevoegen",
+            "description": "Voegt een laadtijdslot toe aan de opgegeven dagen. Bestaande sloten blijven; overlappende worden geweigerd (max. 7 per dag).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De Laadschema-schakelaar."
+                },
+                "start_time": {
+                    "name": "Starttijd",
+                    "description": "Begin van het tijdslot (UU:MM)."
+                },
+                "end_time": {
+                    "name": "Eindtijd",
+                    "description": "Einde van het tijdslot (UU:MM); vóór of gelijk aan de start loopt door tot de volgende dag."
+                },
+                "days": {
+                    "name": "Dagen",
+                    "description": "Weekdagen (standaard: elke dag)."
+                },
+                "max_power": {
+                    "name": "Max. vermogen",
+                    "description": "Maximaal vermogen in kW (standaard: maximum van het station)."
+                },
+                "max_current": {
+                    "name": "Max. stroom",
+                    "description": "Maximale stroom in A (alternatief voor max. vermogen)."
+                },
+                "replace": {
+                    "name": "Vervangen",
+                    "description": "Bestaande sloten van deze dagen vervangen in plaats van toevoegen."
+                }
+            }
+        },
+        "clear_charging_schedule": {
+            "name": "Laadschema wissen",
+            "description": "Verwijdert de tijdsloten van de opgegeven dagen, of het hele schema.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entiteit",
+                    "description": "De Laadschema-schakelaar."
+                },
+                "days": {
+                    "name": "Dagen",
+                    "description": "Weekdagen (standaard: elke dag)."
+                }
+            }
         }
     },
     "entity": {
@@ -332,6 +398,9 @@
             },
             "heartbeat_interval": {
                 "name": "Heartbeat interval"
+            },
+            "max_charging_power": {
+                "name": "Maximaal laadvermogen"
             }
         },
         "select": {
@@ -349,6 +418,9 @@
             },
             "display_language": {
                 "name": "Display taal"
+            },
+            "charge_control": {
+                "name": "Laadbediening"
             }
         },
         "switch": {
@@ -369,6 +441,9 @@
             },
             "proxy_enabled": {
                 "name": "Proxy ingeschakeld"
+            },
+            "charging_schedule_enabled": {
+                "name": "Laadschema"
             }
         },
         "button": {
