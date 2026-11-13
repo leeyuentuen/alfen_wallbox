@@ -69,6 +69,33 @@
             },
             "last_modify_datetime": {
                 "default": "mdi:calendar-edit"
+            },
+            "charging_status": {
+                "default": "mdi:ev-station"
+            },
+            "charging_limited_by": {
+                "default": "mdi:speedometer-slow"
+            },
+            "session_energy": {
+                "default": "mdi:battery-charging"
+            },
+            "session_duration": {
+                "default": "mdi:timer-outline"
+            },
+            "session_max_power": {
+                "default": "mdi:flash"
+            },
+            "solar_charging_power": {
+                "default": "mdi:solar-power"
+            },
+            "grid_power": {
+                "default": "mdi:transmission-tower"
+            },
+            "green_share": {
+                "default": "mdi:leaf"
+            },
+            "session_green_share": {
+                "default": "mdi:leaf-circle"
             }
         },
         "binary_sensor": {
@@ -101,6 +128,9 @@
             },
             "https_api_login_status": {
                 "default": "mdi:connection"
+            },
+            "charging_restricted": {
+                "default": "mdi:speedometer-slow"
             }
         },
         "number": {
