@@ -13,6 +13,7 @@ from homeassistant.const import (
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.alfen_wallbox.charging_insights import ChargingSession
 from custom_components.alfen_wallbox.const import (
     CONF_REFRESH_CATEGORIES,
     DEFAULT_REFRESH_CATEGORIES,
@@ -65,6 +66,7 @@ def mock_alfen_device_fixture():
         mock_device.max_station_power = 22.1
         mock_device.max_power = None
         mock_device.active_phases = 3
+        mock_device.session = ChargingSession()
         mock_device.keep_logout = False
         mock_device.get_static_properties = False
         mock_device.category_options = ["generic", "states"]

@@ -310,6 +310,33 @@
             },
             "last_modify_datetime": {
                 "name": "Senaste konfigändring"
+            },
+            "charging_status": {
+                "name": "Laddstatus"
+            },
+            "charging_limited_by": {
+                "name": "Laddning begränsad av"
+            },
+            "session_energy": {
+                "name": "Sessionsenergi"
+            },
+            "session_duration": {
+                "name": "Sessionstid"
+            },
+            "session_max_power": {
+                "name": "Sessionens maxeffekt"
+            },
+            "solar_charging_power": {
+                "name": "Laddeffekt från sol"
+            },
+            "grid_power": {
+                "name": "Laddeffekt från nätet"
+            },
+            "green_share": {
+                "name": "Grön andel"
+            },
+            "session_green_share": {
+                "name": "Grön andel för sessionen"
             }
         },
         "binary_sensor": {
@@ -342,6 +369,9 @@
             },
             "https_api_login_status": {
                 "name": "API-inloggningsstatus"
+            },
+            "charging_restricted": {
+                "name": "Laddning begränsad"
             }
         },
         "number": {

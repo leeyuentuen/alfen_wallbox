@@ -21,6 +21,7 @@ from aiohttp import ClientSession, ClientTimeout
 
 from . import charging
 from .charging import TimeSlot
+from .charging_insights import ChargingSession
 from .const import (
     ALFEN_PRODUCT_MAP,
     CAT,
@@ -170,6 +171,8 @@ class AlfenDevice:
         self.timezone: datetime.tzinfo = datetime.UTC
         # Callback to push profile changes to entities without a full update cycle
         self._state_changed_callback: Callable[[], Any] | None = None
+        # Current (or last) charging session of socket 1
+        self.session = ChargingSession()
         self.transaction_offset = 0
         # Fetch both histories once in the first update cycle, so the sensors
         # built from them are filled after a restart instead of staying empty
@@ -668,7 +671,14 @@ class AlfenDevice:
             # 7b. Fetch logs and transactions (according to schedule)
             await self._fetch_logs_and_transactions()
 
-            # 8. Log total update time for monitoring
+            # 8. Track the current charging session
+            self.session.update(
+                self.properties,
+                datetime.datetime.now(datetime.UTC),
+                resume_from=self._open_transaction_start("socket 1"),
+            )
+
+            # 9. Log total update time for monitoring
             update_duration = (datetime.datetime.now() - update_start).total_seconds()
             _LOGGER.debug("[%s] Update cycle completed in %.2fs", self.log_id, update_duration)
 
@@ -1052,6 +1062,29 @@ class AlfenDevice:
         if weekdays is None:
             await self.clear_charging_profile(PROFILE_ID_APPLY_SCHEDULE)
         await self._refresh_after_profile_change()
+=======
+    def _open_transaction_start(self, socket: str) -> tuple[datetime.datetime, float] | None:
+        """Return (start, meter Wh) of an open transaction found in the log, if any.
+
+        Used when a session is already running when tracking starts (e.g. after a
+        restart), so the session energy and duration cover the whole session.
+        """
+        if not self.latest_tag:
+            return None
+        start_date = self.latest_tag.get((socket, "start", "date"))
+        stop_date = self.latest_tag.get((socket, "stop", "date"))
+        start_kwh_raw = self.latest_tag.get((socket, "start", "kWh"))
+        if not isinstance(start_date, str) or start_kwh_raw is None:
+            return None
+        try:
+            start_kwh = float(start_kwh_raw)
+            start = datetime.datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
+        except (TypeError, ValueError):
+            return None
+        if stop_date and stop_date >= start_date:
+            return None  # the last transaction already ended
+        local_tz = datetime.datetime.now().astimezone().tzinfo
+        return start.replace(tzinfo=local_tz).astimezone(datetime.UTC), start_kwh * 1000
 
     async def _post(
         self,
